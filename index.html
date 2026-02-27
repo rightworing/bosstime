@@ -291,6 +291,7 @@
         window.handleEnter = function(event, name) { if (event.key === 'Enter') window.saveTime(name); };
         window.saveNotifySetting = function() {
             notifyMinutes = parseInt(document.getElementById('notifyMin').value) || 5;
+			notifiedSpawns = {};
             try { localStorage.setItem('bossNotifyMin', notifyMinutes); } catch(e) {}
         };
 
@@ -593,3 +594,4 @@
 </body>
 
 </html>
+
