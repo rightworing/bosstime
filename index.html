@@ -33,19 +33,19 @@
 
         /* 卡片排版 */
         .boss-card {
-            background-color: #1e1e1e; border: 2px solid #333; border-left-width: 8px;
-            padding: 12px 15px; border-radius: 8px;
-            display: flex; flex-wrap: nowrap;
-            justify-content: space-between; align-items: flex-start;
-            transition: all 0.3s ease-in-out; box-sizing: border-box; width: 100%;
-            gap: 10px;
+            background-color: #1e1e1e; border: 2px solid #333; border-left-width: 8px; 
+            padding: 12px 15px; border-radius: 8px; 
+            display: flex; flex-wrap: nowrap; 
+            justify-content: space-between; align-items: flex-start; 
+            transition: all 0.3s ease-in-out; box-sizing: border-box; width: 100%; 
+            gap: 10px; 
         }
 
         /* 顏色區分 */
         .boss-card.active.type-interval { border-left-color: #d4af37; border-color: rgba(212, 175, 55, 0.4); background-color: #242424; }
         .boss-card.active.type-daily { border-left-color: #4da6ff; border-color: rgba(77, 166, 255, 0.4); background-color: #1a2938; }
         .boss-card.active.type-weekly { border-left-color: #b266ff; border-color: rgba(178, 102, 255, 0.4); background-color: #261a38; }
-
+        
         .boss-card.warning { border-left-color: #ffcc00; border-color: #ccaa00; background: linear-gradient(145deg, #554400, #221c00); box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); animation: pulseWarning 2s infinite; opacity: 1 !important; }
         .boss-card.urgent { border-left-color: #ff1a1a; border-color: #ff1a1a; background: linear-gradient(145deg, #a01010, #3b0a0a); box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); animation: pulseUrgent 1s infinite; opacity: 1 !important; }
         .boss-card.passed { border-left-color: #555; border-color: #333; background-color: #1a1a1a; opacity: 0.5; }
@@ -54,40 +54,40 @@
         .info-section { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; padding-top: 5px;}
         .boss-name { font-size: 1.25em; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .boss-tag { font-size: 0.65em; background-color: #444; color: #ddd; padding: 3px 6px; border-radius: 4px; font-weight: normal; white-space: nowrap; flex-shrink: 0;}
-        .boss-tag.fixed-daily { background-color: #004066; color: #80cfff; border: 1px solid #4da6ff; }
-        .boss-tag.fixed-weekly { background-color: #3b1f5c; color: #d9b3ff; border: 1px solid #b266ff;}
+        .boss-tag.fixed-daily { background-color: #004066; color: #80cfff; border: 1px solid #4da6ff; } 
+        .boss-tag.fixed-weekly { background-color: #3b1f5c; color: #d9b3ff; border: 1px solid #b266ff;} 
         .boss-interval.fast-mode-text { color: #ff9999; font-weight: bold; }
 
         .time-display { font-size: 1.1em; color: #ccc; white-space: nowrap; }
         .boss-card.type-interval .time-display strong { color: #d4af37; font-size: 1.15em; transition: color 0.3s;}
         .boss-card.type-daily .time-display strong { color: #4da6ff; font-size: 1.15em; transition: color 0.3s;}
         .boss-card.type-weekly .time-display strong { color: #b266ff; font-size: 1.15em; transition: color 0.3s;}
-
+        
         .boss-card.warning .time-display strong { color: #ffe680; text-shadow: 0 0 10px #ffcc00; }
         .boss-card.warning .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 204, 0, 0.6); }
         .boss-card.urgent .time-display strong { color: #ffcccc; text-shadow: 0 0 10px #ff1a1a, 0 0 20px #ff1a1a; }
         .boss-card.urgent .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 0, 0, 0.8); }
 
         .boss-status { font-size: 0.95em; font-family: monospace; white-space: nowrap; }
-
+        
         /* 右側控制區塊：嚴格垂直排列靠右 */
         .control-section { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
         .control-row { display: flex; gap: 4px; align-items: center; }
 
         input.time-input { background-color: #2c2c2c; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 1em; width: 55px; text-align: center; font-family: monospace; }
-        input.time-input:focus { outline: 2px solid #d4af37; background-color: #3d3d3d;} /* 點擊高亮效果 */
-
+        input.time-input:focus { outline: 2px solid #d4af37; background-color: #3d3d3d;} 
+        
         button { background-color: #444; color: #fff; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85em; transition: background 0.2s; white-space: nowrap;}
         button:hover { background-color: #555; }
         button.save-btn { background-color: #2d5a27; } button.save-btn:hover { background-color: #3b7533; }
         button.clear-btn { background-color: #8b4513; } button.clear-btn:hover { background-color: #a0522d; }
-
-        button.delete-btn { background-color: transparent; border: 1px solid #660000; color: #ff6b6b; padding: 2px 6px; font-size: 0.75em; }
+        
+        button.delete-btn { background-color: transparent; border: 1px solid #660000; color: #ff6b6b; padding: 2px 6px; font-size: 0.75em; } 
         button.delete-btn:hover { background-color: #8b0000; color: #fff; }
-
+        
         button.notify-btn { background-color: #0056b3; } button.notify-btn:hover { background-color: #0073e6; }
         button.sound-on-btn { background-color: #2d5a27; font-weight: bold;} button.sound-off-btn { background-color: #8b0000; color: #ccc;}
-
+        
         button.backup-btn { background-color: #5b3256; border: 1px solid #8c4c85; } button.backup-btn:hover { background-color: #7a4373; }
         button.import-btn { background-color: #325b56; border: 1px solid #4c8c85; } button.import-btn:hover { background-color: #437a73; }
         button#speedToggleBtn { font-weight: bold; font-size: 0.9em; }
@@ -109,7 +109,7 @@
         @keyframes pulseWarning { 0% { box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); } 50% { box-shadow: 0 0 35px rgba(255, 204, 0, 1), inset 0 0 15px rgba(255, 204, 0, 0.5); } 100% { box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); } }
         @keyframes pulseUrgent { 0% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); } 50% { box-shadow: 0 0 40px rgba(255, 0, 0, 1), inset 0 0 15px rgba(255, 0, 0, 0.6); } 100% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); } }
     </style>
-
+    
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
@@ -125,7 +125,7 @@
                 <button class="backup-btn" onclick="exportData()">💾 匯出備份</button>
                 <button class="import-btn" onclick="document.getElementById('importFile').click()">📂 匯入還原</button>
                 <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
-
+                
                 <button id="notifyAuthBtn" class="notify-btn" onclick="requestNotificationPermission()">🔔 授權通知</button>
                 <button id="soundToggleBtn" class="sound-on-btn" onclick="toggleSound()">🔊 音效: 開</button>
                 <span style="font-size:0.9em; margin-left: 5px;">提前 <input type="number" id="notifyMin" class="notify-input" value="5" min="1" max="60" onchange="saveNotifySetting()"> 分提醒</span>
@@ -160,18 +160,18 @@
 
     <div class="instructions-panel">
         <h2>📖 系統使用說明與顏色指南</h2>
-
+        
         <h3>🎨 卡片狀態與顏色</h3>
         <ul>
             <li><span class="color-box" style="background:#ffcc00;"></span> <strong>黃色警戒：</strong> 倒數 30 分鐘內，卡片會發出黃光並緩慢閃爍，提醒準備集結。</li>
             <li><span class="color-box" style="background:#ff1a1a;"></span> <strong>紅色警戒：</strong> 倒數 10 分鐘內，卡片會發出強烈紅光並加速閃爍，隨時準備出王！</li>
-            <li><span class="color-box" style="background:#1a1a1a; border: 1px solid #555;"></span> <strong>灰色沉底：</strong> 尚未記錄時間，或是王已經重生太久，會自動變暗並排在最下方。</li>
+            <li><span class="color-box" style="background:#1a1a1a; border: 1px solid #555;"></span> <strong>灰色沉底：</strong> 尚未記錄時間，或是王已經重生超過 30 分鐘，會自動變暗排在最下方，<strong style="color:#ff6b6b;">並自動推算下次可能的時間</strong>。</li>
         </ul>
 
         <h3>🏷️ 頭目種類標籤</h3>
         <ul>
             <li><span class="color-box" style="border-left: 4px solid #d4af37;"></span> <strong>金色邊框 (間隔王)：</strong> 依據擊殺時間往後推算。</li>
-            <li><span class="color-box" style="border-left: 4px solid #4da6ff;"></span> <strong>藍色邊框 (每日王)：</strong> 每天固定時間出沒。超過時間 2 小時後會自動切換至隔天。</li>
+            <li><span class="color-box" style="border-left: 4px solid #4da6ff;"></span> <strong>藍色邊框 (每日王)：</strong> 每天固定時間出沒。</li>
             <li><span class="color-box" style="border-left: 4px solid #b266ff;"></span> <strong>紫色邊框 (每週王)：</strong> 每週固定日期與時間出沒。</li>
         </ul>
 
@@ -201,7 +201,6 @@
         let db;
         let isFirebaseActive = false;
 
-        // 預設資料 (若雲端全空時的初始值)
         const defaultBossConfig = {
             "史前巨鱷": { type: 'interval', value: 4 }, "大腳": { type: 'interval', value: 4 },
             "巨人": { type: 'interval', value: 12 }, "拉馬修": { type: 'interval', value: 8 },
@@ -214,25 +213,24 @@
 
         let bossConfig = JSON.parse(JSON.stringify(defaultBossConfig));
         let bossData = JSON.parse(JSON.stringify(defaultRecords));
-
+        
         let notifyMinutes = 5;
         let isFastMode = false;
         let isSoundEnabled = true;
         let notifiedSpawns = {};
         let audioCtx = null;
 
-        // 系統初始化 (讀取本地偏好設定)
         try {
             const savedNotify = localStorage.getItem('bossNotifyMin');
             if (savedNotify) notifyMinutes = parseInt(savedNotify);
             const savedSound = localStorage.getItem('bossSoundEnabled');
             if (savedSound !== null) isSoundEnabled = savedSound === 'true';
         } catch (e) {}
-
+        
         document.getElementById('notifyMin').value = notifyMinutes;
         updateSpeedBtnUI();
         updateSoundBtnUI();
-        checkNotificationStatus();
+        checkNotificationStatus(); 
 
         document.body.addEventListener('click', function() {
             if (isSoundEnabled) {
@@ -247,13 +245,12 @@
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
                 isFirebaseActive = true;
-
+                
                 const statusEl = document.getElementById('syncStatus');
                 statusEl.innerText = "🟢 雲端同步連線中... (等待資料)";
                 statusEl.style.color = "#a0ffaa";
                 statusEl.style.background = "#1a331a";
 
-                // 監聽【雙倍速模式】
                 db.ref('settings/isFastMode').on('value', (snapshot) => {
                     const val = snapshot.val();
                     if (val !== null) {
@@ -263,7 +260,6 @@
                     }
                 });
 
-                // 監聽【頭目設定清單】
                 db.ref('bossConfig').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -276,7 +272,6 @@
                     renderBossCards();
                 });
 
-                // 監聽【擊殺時間記錄】
                 db.ref('bossData').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -324,11 +319,11 @@
                             db.ref('bossConfig').set(importedData.config);
                             db.ref('bossData').set(importedData.records);
                         } else {
-                            bossConfig = importedData.config;
+                            bossConfig = importedData.config; 
                             bossData = importedData.records;
                         }
-                        alert("✅ 資料還原成功！雲端已同步。");
-                        document.getElementById('importFile').value = ''; // 清空選擇
+                        alert("✅ 資料還原成功！雲端已同步。"); 
+                        document.getElementById('importFile').value = ''; 
                     } else { alert("❌ 檔案格式不正確，請選擇匯出的備份檔！"); }
                 } catch (err) { alert("❌ 讀取檔案失敗！"); }
             };
@@ -354,7 +349,7 @@
         window.handleEnter = function(event, name) { if (event.key === 'Enter') window.saveTime(name); };
         window.saveNotifySetting = function() {
             notifyMinutes = parseInt(document.getElementById('notifyMin').value) || 5;
-            notifiedSpawns = {}; // 更改時間時重置通知記憶
+            notifiedSpawns = {}; 
             try { localStorage.setItem('bossNotifyMin', notifyMinutes); } catch(e) {}
         };
 
@@ -368,35 +363,34 @@
 
         function updateSpeedBtnUI() {
             const btn = document.getElementById('speedToggleBtn');
-            if (isFastMode) { btn.className = "fast"; btn.innerText = "🔥 雙倍速模式 (全團同步中)"; }
+            if (isFastMode) { btn.className = "fast"; btn.innerText = "🔥 雙倍速模式 (全團同步中)"; } 
             else { btn.className = "normal"; btn.innerText = "⏳ 正常間隔模式"; }
         }
 
         function updateSoundBtnUI() {
             const btn = document.getElementById('soundToggleBtn');
-            if (isSoundEnabled) { btn.className = "sound-on-btn"; btn.innerText = "🔊 音效: 開"; }
+            if (isSoundEnabled) { btn.className = "sound-on-btn"; btn.innerText = "🔊 音效: 開"; } 
             else { btn.className = "sound-off-btn"; btn.innerText = "🔇 音效: 關"; }
         }
 
         function renderBossCards() {
             const container = document.getElementById('bossContainer');
-            container.innerHTML = '';
+            container.innerHTML = ''; 
 
             Object.keys(bossConfig).forEach(name => {
                 const config = bossConfig[name];
                 const card = document.createElement('div');
                 card.className = `boss-card type-${config.type}`;
                 card.id = `card-${name}`;
-
+                
                 let modeTagHtml = '';
                 let controlHtml = '';
 
-                // 🌟 右側控制面板 (加入 onfocus="this.select()" 一鍵全選)
                 if (config.type === 'interval') {
                     const displayVal = isFastMode ? config.value / 2 : config.value;
                     const tagClass = isFastMode ? "boss-tag fast-mode-text" : "boss-tag";
                     modeTagHtml = `<span class="${tagClass}">${isFastMode ? '加速' : '間隔'}${displayVal}H</span>`;
-
+                    
                     const savedTime = bossData[name] || '';
                     controlHtml = `
                         <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
@@ -431,7 +425,7 @@
         // ================= 推上雲端邏輯 =================
         window.addNewBoss = function() {
             if (!isFirebaseActive) return alert("請先設定 Firebase 金鑰才能使用新增功能！");
-
+            
             const nameInput = document.getElementById('newBossName').value.trim();
             const type = document.getElementById('newBossType').value;
 
@@ -485,7 +479,6 @@
             if (!isFirebaseActive) return;
             db.ref('bossData/' + name).set(null);
         };
-        // ========================================================
 
         window.toggleSound = function() {
             isSoundEnabled = !isSoundEnabled;
@@ -513,7 +506,7 @@
                 osc.type = 'square'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.15);
-
+                
                 setTimeout(() => {
                     const osc2 = audioCtx.createOscillator(); const gain2 = audioCtx.createGain();
                     osc2.connect(gain2); gain2.connect(audioCtx.destination);
@@ -532,7 +525,7 @@
         }
 
         function getNextFixedTime(now, type, timeStr, dayOfWeek) {
-            if (!timeStr) return now;
+            if (!timeStr) return now; 
             const [tH, tM] = timeStr.split(':').map(Number);
             let targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), tH || 0, tM || 0, 0);
 
@@ -551,22 +544,23 @@
             return targetDate;
         }
 
+        // 🌟 核心排版與時間邏輯 (加入超時 30 分自動推算)
         function updateAndSort() {
             const now = new Date();
             const [nowH, nowM, nowS] = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2, '0'));
             document.getElementById('currentTime').innerText = `現在時間: ${nowH}:${nowM}:${nowS}`;
-
+            
             let sortArray = [];
 
             Object.keys(bossConfig).forEach(name => {
                 try {
                     const config = bossConfig[name];
                     const card = document.getElementById(`card-${name}`);
-                    if (!card) return;
-
+                    if (!card) return; 
+                    
                     const displayEl = document.getElementById(`timeDisplay-${name}`);
                     const statusEl = document.getElementById(`status-${name}`);
-
+                    
                     let orderWeight = 0;
                     let nextSpawnDate = null;
 
@@ -576,20 +570,20 @@
                             card.className = `boss-card type-${config.type} passed`;
                             displayEl.innerText = "尚未記錄擊殺時間";
                             statusEl.innerText = '等待輸入...'; statusEl.style.color = '#888';
-                            orderWeight = 200000000;
+                            orderWeight = 200000000; 
                             sortArray.push({ name, weight: orderWeight });
-                            return;
+                            return; 
                         }
                         const actualInterval = isFastMode ? (config.value / 2) : config.value;
                         const [killH, killM] = killTimeRecord.split(':').map(Number);
                         let killDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), killH || 0, killM || 0, 0);
                         if (killDate > now) killDate.setDate(killDate.getDate() - 1);
                         nextSpawnDate = new Date(killDate.getTime() + actualInterval * 60 * 60 * 1000);
-
+                        
                         const spH = String(nextSpawnDate.getHours()).padStart(2, '0');
                         const spM = String(nextSpawnDate.getMinutes()).padStart(2, '0');
                         displayEl.innerHTML = `擊殺 ${killTimeRecord} ➔ <strong>${spH}:${spM}</strong>`;
-
+                    
                     } else {
                         nextSpawnDate = getNextFixedTime(now, config.type, config.time, config.day);
                         const spH = String(nextSpawnDate.getHours()).padStart(2, '0');
@@ -601,22 +595,23 @@
                     const spTimeStr = `${String(nextSpawnDate.getHours()).padStart(2, '0')}:${String(nextSpawnDate.getMinutes()).padStart(2, '0')}`;
 
                     if (diffMs > 0) {
+                        // ==== 還沒出王，正在倒數中 ====
                         const diffMinutes = diffMs / 1000 / 60;
-
+                        
                         if (diffMinutes <= 10) {
-                            card.className = `boss-card type-${config.type} urgent`; statusEl.style.color = '';
+                            card.className = `boss-card type-${config.type} urgent`; statusEl.style.color = ''; 
                         } else if (diffMinutes <= 30) {
-                            card.className = `boss-card type-${config.type} warning`; statusEl.style.color = '';
+                            card.className = `boss-card type-${config.type} warning`; statusEl.style.color = ''; 
                         } else {
-                            card.className = `boss-card type-${config.type} active`;
-                            if (config.type === 'interval') statusEl.style.color = '#d4af37';
+                            card.className = `boss-card type-${config.type} active`; 
+                            if (config.type === 'interval') statusEl.style.color = '#d4af37'; 
                             else if (config.type === 'daily') statusEl.style.color = '#4da6ff';
                             else if (config.type === 'weekly') statusEl.style.color = '#b266ff';
                         }
 
                         const hr = Math.floor(diffMinutes / 60); const min = Math.floor(diffMinutes % 60); const sec = Math.floor((diffMs / 1000) % 60);
                         statusEl.innerText = `倒數中: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
-                        orderWeight = diffMs;
+                        orderWeight = diffMs; 
 
                         const spawnId = `${name}-${nextSpawnDate.getTime()}`;
                         if (diffMinutes <= notifyMinutes && !notifiedSpawns[spawnId]) {
@@ -624,10 +619,31 @@
                             notifiedSpawns[spawnId] = true;
                         }
                     } else {
+                        // ==== 時間已經過了 (已出現) ====
                         card.className = `boss-card type-${config.type} passed`;
-                        statusEl.innerText = `⚠️ 已出現 (經過 ${Math.floor(Math.abs(diffMs)/1000/60)} 分鐘)`;
+                        const passedMinutes = Math.floor(Math.abs(diffMs) / 1000 / 60);
+                        
+                        // 🌟 30分鐘內顯示經過時間，超過30分鐘直接推算下一輪
+                        if (passedMinutes <= 30) {
+                            statusEl.innerText = `⚠️ 已出現 (經過 ${passedMinutes} 分鐘)`;
+                        } else {
+                            if (config.type === 'interval') {
+                                const actualInterval = isFastMode ? (config.value / 2) : config.value;
+                                let nextPossible = new Date(nextSpawnDate.getTime());
+                                // 一直加上間隔時間，直到找出大於現在的時間為止
+                                while (nextPossible <= now) {
+                                    nextPossible.setTime(nextPossible.getTime() + actualInterval * 60 * 60 * 1000);
+                                }
+                                const npH = String(nextPossible.getHours()).padStart(2, '0');
+                                const npM = String(nextPossible.getMinutes()).padStart(2, '0');
+                                statusEl.innerText = `⚠️ 錯過記錄，下次可能約 ${npH}:${npM}`;
+                            } else {
+                                statusEl.innerText = `⚠️ 錯過記錄，等待下次重置`;
+                            }
+                        }
+
                         statusEl.style.color = '#ff6b6b';
-                        orderWeight = 100000000 + Math.abs(diffMs);
+                        orderWeight = 100000000 + Math.abs(diffMs); // 讓它乖乖沉在底下
                     }
 
                     sortArray.push({ name, weight: orderWeight });
