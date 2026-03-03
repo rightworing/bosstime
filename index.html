@@ -31,820 +31,900 @@
 
         .boss-container { width: 100%; max-width: 1200px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 15px; align-items: start; }
 
-        /* 卡片排版 */
         .boss-card {
-            background-color: #1e1e1e; border: 2px solid #333; border-left-width: 8px; 
-            padding: 12px 15px; border-radius: 8px; 
-            display: flex; flex-wrap: nowrap; 
-            justify-content: space-between; align-items: flex-start; 
-            transition: all 0.3s ease-in-out; box-sizing: border-box; width: 100%; 
-            gap: 10px; 
+            background-color: #1e1e1e; border: 2px solid #333; border-left-width: 8px;
+            padding: 12px 15px; border-radius: 8px;
+            display: flex; flex-wrap: nowrap;
+            justify-content: space-between; align-items: flex-start;
+            transition: all 0.3s ease-in-out; box-sizing: border-box; width: 100%;
+            gap: 10px;
         }
 
-        /* 顏色區分 (一般狀態) */
         .boss-card.active.type-interval { border-left-color: #d4af37; border-color: rgba(212, 175, 55, 0.4); background-color: #242424; }
-        .boss-card.active.type-daily { border-left-color: #4da6ff; border-color: rgba(77, 166, 255, 0.4); background-color: #1a2938; }
-        .boss-card.active.type-weekly { border-left-color: #b266ff; border-color: rgba(178, 102, 255, 0.4); background-color: #261a38; }
-        
-        /* 推算中(不確定)的虛線狀態 */
+        .boss-card.active.type-daily    { border-left-color: #4da6ff; border-color: rgba(77, 166, 255, 0.4); background-color: #1a2938; }
+        .boss-card.active.type-weekly   { border-left-color: #b266ff; border-color: rgba(178, 102, 255, 0.4); background-color: #261a38; }
+
+        /* 推算中（虛線橙色） */
         .boss-card.uncertain { border-style: dashed; border-color: #ff9933; background-color: #261a0d; }
-
-        .boss-card.warning { border-left-color: #ffcc00; border-color: #ccaa00; background: linear-gradient(145deg, #554400, #221c00); box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); animation: pulseWarning 2s infinite; opacity: 1 !important; border-style: solid; }
-        .boss-card.urgent { border-left-color: #ff1a1a; border-color: #ff1a1a; background: linear-gradient(145deg, #a01010, #3b0a0a); box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); animation: pulseUrgent 1s infinite; opacity: 1 !important; border-style: solid; }
-        
-        /* 警告與急迫時，若是推算狀態，維持虛線 */
         .boss-card.uncertain.warning { border-style: dashed; border-color: #ffcc00; }
-        .boss-card.uncertain.urgent { border-style: dashed; border-color: #ff1a1a; }
+        .boss-card.uncertain.urgent  { border-style: dashed; border-color: #ff1a1a; }
 
+        /* 警告 & 急迫 */
+        .boss-card.warning { border-left-color: #ffcc00; border-color: #ccaa00; background: linear-gradient(145deg, #554400, #221c00); box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); animation: pulseWarning 2s infinite; opacity: 1 !important; border-style: solid; }
+        .boss-card.urgent  { border-left-color: #ff1a1a; border-color: #ff1a1a; background: linear-gradient(145deg, #a01010, #3b0a0a); box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); animation: pulseUrgent 1s infinite; opacity: 1 !important; border-style: solid; }
+
+        /* 剛出現 30 分鐘內 */
         .boss-card.passed { border-left-color: #555; border-color: #333; background-color: #1a1a1a; opacity: 0.5; }
 
-        /* 左側文字區塊 */
-        .info-section { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; padding-top: 5px;}
+        /* 未登記 / 已過期（外觀相同，排最下方） */
+        .boss-card.expired { border-left-color: #555; border-color: #333; background-color: #1a1a1a; opacity: 0.45; }
+
+        .info-section { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; padding-top: 5px; }
         .boss-name { font-size: 1.25em; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .boss-tag { font-size: 0.65em; background-color: #444; color: #ddd; padding: 3px 6px; border-radius: 4px; font-weight: normal; white-space: nowrap; flex-shrink: 0;}
-        .boss-tag.fixed-daily { background-color: #004066; color: #80cfff; border: 1px solid #4da6ff; } 
-        .boss-tag.fixed-weekly { background-color: #3b1f5c; color: #d9b3ff; border: 1px solid #b266ff;} 
+        .boss-tag { font-size: 0.65em; background-color: #444; color: #ddd; padding: 3px 6px; border-radius: 4px; font-weight: normal; white-space: nowrap; flex-shrink: 0; }
+        .boss-tag.fixed-daily  { background-color: #004066; color: #80cfff; border: 1px solid #4da6ff; }
+        .boss-tag.fixed-weekly { background-color: #3b1f5c; color: #d9b3ff; border: 1px solid #b266ff; }
         .boss-interval.fast-mode-text { color: #ff9999; font-weight: bold; }
 
         .time-display { font-size: 1.1em; color: #ccc; white-space: nowrap; }
-        .boss-card.type-interval .time-display strong { color: #d4af37; font-size: 1.15em; transition: color 0.3s;}
-        .boss-card.type-daily .time-display strong { color: #4da6ff; font-size: 1.15em; transition: color 0.3s;}
-        .boss-card.type-weekly .time-display strong { color: #b266ff; font-size: 1.15em; transition: color 0.3s;}
-        
+        .boss-card.type-interval .time-display strong { color: #d4af37; font-size: 1.15em; transition: color 0.3s; }
+        .boss-card.type-daily   .time-display strong { color: #4da6ff; font-size: 1.15em; transition: color 0.3s; }
+        .boss-card.type-weekly  .time-display strong { color: #b266ff; font-size: 1.15em; transition: color 0.3s; }
+
         .boss-card.warning .time-display strong { color: #ffe680; text-shadow: 0 0 10px #ffcc00; }
-        .boss-card.warning .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 204, 0, 0.6); }
-        .boss-card.urgent .time-display strong { color: #ffcccc; text-shadow: 0 0 10px #ff1a1a, 0 0 20px #ff1a1a; }
-        .boss-card.urgent .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 0, 0, 0.8); }
+        .boss-card.warning .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255,204,0,0.6); }
+        .boss-card.urgent  .time-display strong { color: #ffcccc; text-shadow: 0 0 10px #ff1a1a, 0 0 20px #ff1a1a; }
+        .boss-card.urgent  .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255,0,0,0.8); }
 
         .boss-status { font-size: 0.95em; font-family: monospace; white-space: nowrap; }
-        
-        /* 右側控制區塊 */
+
         .control-section { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
         .control-row { display: flex; gap: 4px; align-items: center; }
 
         input.time-input { background-color: #2c2c2c; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 1em; width: 55px; text-align: center; font-family: monospace; }
-        input.time-input:focus { outline: 2px solid #d4af37; background-color: #3d3d3d;} 
-        
-        button { background-color: #444; color: #fff; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85em; transition: background 0.2s; white-space: nowrap;}
+        input.time-input:focus { outline: 2px solid #d4af37; background-color: #3d3d3d; }
+
+        button { background-color: #444; color: #fff; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85em; transition: background 0.2s; white-space: nowrap; }
         button:hover { background-color: #555; }
-        button.save-btn { background-color: #2d5a27; } button.save-btn:hover { background-color: #3b7533; }
-        button.clear-btn { background-color: #8b4513; } button.clear-btn:hover { background-color: #a0522d; }
-        
-        button.delete-btn { background-color: transparent; border: 1px solid #660000; color: #ff6b6b; padding: 2px 6px; font-size: 0.75em; } 
+        button.save-btn   { background-color: #2d5a27; } button.save-btn:hover   { background-color: #3b7533; }
+        button.clear-btn  { background-color: #8b4513; } button.clear-btn:hover  { background-color: #a0522d; }
+        button.delete-btn { background-color: transparent; border: 1px solid #660000; color: #ff6b6b; padding: 2px 6px; font-size: 0.75em; }
         button.delete-btn:hover { background-color: #8b0000; color: #fff; }
-        
-        button.notify-btn { background-color: #0056b3; } button.notify-btn:hover { background-color: #0073e6; }
-        button.sound-on-btn { background-color: #2d5a27; font-weight: bold;} button.sound-off-btn { background-color: #8b0000; color: #ccc;}
-        
+        button.notify-btn    { background-color: #0056b3; } button.notify-btn:hover    { background-color: #0073e6; }
+        button.sound-on-btn  { background-color: #2d5a27; font-weight: bold; }
+        button.sound-off-btn { background-color: #8b0000; color: #ccc; }
         button.backup-btn { background-color: #5b3256; border: 1px solid #8c4c85; } button.backup-btn:hover { background-color: #7a4373; }
         button.import-btn { background-color: #325b56; border: 1px solid #4c8c85; } button.import-btn:hover { background-color: #437a73; }
-        
-        button.copy-btn { background-color: #2d5a88; border: 1px solid #4a82b5; font-weight: bold; } 
+        button.copy-btn { background-color: #2d5a88; border: 1px solid #4a82b5; font-weight: bold; }
         button.copy-btn:hover { background-color: #3b75b3; }
-
         button.copy-single-btn { background-color: #333; border: 1px solid #555; color: #ccc; padding: 2px 8px; font-size: 0.8em; transition: 0.2s; }
         button.copy-single-btn:hover { background-color: #4a82b5; color: #fff; border-color: #4a82b5; }
-
         button#speedToggleBtn { font-weight: bold; font-size: 0.9em; }
-        button#speedToggleBtn.normal { background-color: #555; } button#speedToggleBtn.fast { background-color: #b30000; box-shadow: 0 0 15px #ff4d4d; }
+        button#speedToggleBtn.normal { background-color: #555; }
+        button#speedToggleBtn.fast   { background-color: #b30000; box-shadow: 0 0 15px #ff4d4d; }
 
-        /* 下方使用說明書面板 */
         .instructions-panel {
             width: 100%; max-width: 1200px; margin-top: 40px; margin-bottom: 20px;
             background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px;
-            padding: 20px; color: #ccc; box-sizing: border-box; line-height: 1.6;
-            font-size: 0.95em;
+            padding: 20px; color: #ccc; box-sizing: border-box; line-height: 1.6; font-size: 0.95em;
         }
         .instructions-panel h2 { color: #d4af37; font-size: 1.3em; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .instructions-panel h3 { color: #fff; font-size: 1.1em; margin-bottom: 5px; margin-top: 15px;}
+        .instructions-panel h3 { color: #fff; font-size: 1.1em; margin-bottom: 5px; margin-top: 15px; }
         .instructions-panel ul { margin-top: 5px; padding-left: 20px; }
         .instructions-panel li { margin-bottom: 8px; }
         .color-box { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 6px; vertical-align: text-bottom; }
 
-        @keyframes pulseWarning { 0% { box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); } 50% { box-shadow: 0 0 35px rgba(255, 204, 0, 1), inset 0 0 15px rgba(255, 204, 0, 0.5); } 100% { box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.2); } }
-        @keyframes pulseUrgent { 0% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); } 50% { box-shadow: 0 0 40px rgba(255, 0, 0, 1), inset 0 0 15px rgba(255, 0, 0, 0.6); } 100% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 10px rgba(255, 0, 0, 0.3); } }
+        @keyframes pulseWarning {
+            0%   { box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); }
+            50%  { box-shadow: 0 0 35px rgba(255,204,0,1),   inset 0 0 15px rgba(255,204,0,0.5); }
+            100% { box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); }
+        }
+        @keyframes pulseUrgent {
+            0%   { box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); }
+            50%  { box-shadow: 0 0 40px rgba(255,0,0,1),   inset 0 0 15px rgba(255,0,0,0.6); }
+            100% { box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); }
+        }
     </style>
-    
+
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
-    <h1>宙斯08頭目重生時間與通知</h1>
-    <div id="syncStatus">🔴 尚未連線至雲端資料庫 (單機模式)</div>
-    <div id="currentTime">現在時間: 載入中...</div>
+<h1>宙斯08頭目重生時間與通知</h1>
+<div id="syncStatus">🔴 尚未連線至雲端資料庫 (單機模式)</div>
+<div id="currentTime">現在時間: 載入中...</div>
 
-    <div class="panel-container">
-        <div class="settings-panel">
-            <div class="top-btn-group">
-                <button class="copy-btn" onclick="copyBossTimes()">📋 複製全團時刻表</button>
-                <button class="backup-btn" onclick="exportData()">💾 匯出備份</button>
-                <button class="import-btn" onclick="document.getElementById('importFile').click()">📂 匯入還原</button>
-                <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
-                
-                <button id="notifyAuthBtn" class="notify-btn" onclick="requestNotificationPermission()">🔔 授權通知</button>
-                <button id="soundToggleBtn" class="sound-on-btn" onclick="toggleSound()">🔊 音效: 開</button>
-                <span style="font-size:0.9em; margin-left: 5px;">提前 <input type="number" id="notifyMin" class="notify-input" value="5" min="1" max="60" onchange="saveNotifySetting()"> 分提醒</span>
-            </div>
-            <button id="speedToggleBtn" class="normal" onclick="toggleSpeedMode()">⏳ 正常間隔模式</button>
+<div class="panel-container">
+    <div class="settings-panel">
+        <div class="top-btn-group">
+            <button class="copy-btn" onclick="copyBossTimes()">📋 複製全團時刻表</button>
+            <button class="backup-btn" onclick="exportData()">💾 匯出備份</button>
+            <button class="import-btn" onclick="document.getElementById('importFile').click()">📂 匯入還原</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+            <button id="notifyAuthBtn" class="notify-btn" onclick="requestNotificationPermission()">🔔 授權通知</button>
+            <button id="soundToggleBtn" class="sound-on-btn" onclick="toggleSound()">🔊 音效: 開</button>
+            <span style="font-size:0.9em; margin-left:5px;">提前 <input type="number" id="notifyMin" class="notify-input" value="5" min="1" max="60" onchange="saveNotifySetting()"> 分提醒</span>
         </div>
+        <button id="speedToggleBtn" class="normal" onclick="toggleSpeedMode()">⏳ 正常間隔模式</button>
+    </div>
 
-        <div class="settings-panel" style="justify-content: flex-start;">
-            <div class="add-boss-group">
-                <span style="font-size:0.9em; color:#ccc;">➕ 新增:</span>
-                <input type="text" id="newBossName" class="add-input" placeholder="名稱">
-                <select id="newBossType" class="add-input" style="width: 95px;" onchange="changeAddUI()">
-                    <option value="interval">間隔倒數</option>
-                    <option value="daily">每天固定</option>
-                    <option value="weekly">每週固定</option>
+    <div class="settings-panel" style="justify-content: flex-start;">
+        <div class="add-boss-group">
+            <span style="font-size:0.9em; color:#ccc;">➕ 新增:</span>
+            <input type="text" id="newBossName" class="add-input" placeholder="名稱">
+            <select id="newBossType" class="add-input" style="width:95px;" onchange="changeAddUI()">
+                <option value="interval">間隔倒數</option>
+                <option value="daily">每天固定</option>
+                <option value="weekly">每週固定</option>
+            </select>
+            <span id="ui-interval"><input type="number" id="newBossInterval" class="add-input short" placeholder="小時"></span>
+            <span id="ui-daily" style="display:none;"><input type="text" id="newBossDailyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)"></span>
+            <span id="ui-weekly" style="display:none;">
+                <select id="newBossWeeklyDay" class="add-input short" style="width:65px;">
+                    <option value="1">週一</option><option value="2">週二</option><option value="3">週三</option>
+                    <option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option>
                 </select>
-                <span id="ui-interval"><input type="number" id="newBossInterval" class="add-input short" placeholder="小時"></span>
-                <span id="ui-daily" style="display:none;"><input type="text" id="newBossDailyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)"></span>
-                <span id="ui-weekly" style="display:none;">
-                    <select id="newBossWeeklyDay" class="add-input short" style="width: 65px;">
-                        <option value="1">週一</option><option value="2">週二</option><option value="3">週三</option>
-                        <option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option>
-                    </select>
-                    <input type="text" id="newBossWeeklyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)">
-                </span>
-                <button class="save-btn" onclick="addNewBoss()">加入雲端</button>
-            </div>
+                <input type="text" id="newBossWeeklyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)">
+            </span>
+            <button class="save-btn" onclick="addNewBoss()">加入雲端</button>
         </div>
     </div>
+</div>
 
-    <div class="boss-container" id="bossContainer"></div>
+<div class="boss-container" id="bossContainer"></div>
 
-    <div class="instructions-panel">
-        <h2>📖 系統使用說明與顏色指南</h2>
-        
-        <h3>🎨 卡片狀態與顏色</h3>
-        <ul>
-            <li><span class="color-box" style="background:#ffcc00;"></span> <strong>黃色警戒：</strong> 倒數 30 分鐘內，卡片會發出黃光閃爍。</li>
-            <li><span class="color-box" style="background:#ff1a1a;"></span> <strong>紅色警戒：</strong> 倒數 10 分鐘內，卡片會發出強烈紅光閃爍，準備出王！</li>
-            <li><span class="color-box" style="border: 2px dashed #ff9933; background:#261a0d;"></span> <strong>橙色虛線 (推算中)：</strong> 錯過記錄，系統自動推算下次時間並排入行程中，時間僅供參考。</li>
-            <li><span class="color-box" style="background:#1a1a1a; border: 1px solid #555;"></span> <strong>灰色沉底：</strong> 完全尚未記錄，或是<strong style="color:#ff6b6b;">斷王超過 24 小時</strong>，會自動判定為遺失並排在最下方等待重新記錄。</li>
-        </ul>
+<div class="instructions-panel">
+    <h2>📖 系統使用說明與顏色指南</h2>
 
-        <h3>🏷️ 頭目種類標籤</h3>
-        <ul>
-            <li><span class="color-box" style="border-left: 4px solid #d4af37;"></span> <strong>金色邊框 (間隔王)：</strong> 依據擊殺時間往後推算。</li>
-            <li><span class="color-box" style="border-left: 4px solid #4da6ff;"></span> <strong>藍色邊框 (每日王)：</strong> 每天固定時間出沒。</li>
-            <li><span class="color-box" style="border-left: 4px solid #b266ff;"></span> <strong>紫色邊框 (每週王)：</strong> 每週固定日期時間出沒。</li>
-        </ul>
+    <h3>🎨 卡片狀態與顏色</h3>
+    <ul>
+        <li><span class="color-box" style="background:#ffcc00;"></span><strong>黃色警戒：</strong>倒數 30 分鐘內，卡片會發出黃光閃爍。</li>
+        <li><span class="color-box" style="background:#ff1a1a;"></span><strong>紅色警戒：</strong>倒數 10 分鐘內，卡片會發出強烈紅光閃爍，準備出王！</li>
+        <li><span class="color-box" style="border:2px dashed #ff9933; background:#261a0d;"></span><strong>橙色虛線 (推算)：</strong>出現超過 30 分鐘後自動推算下一次，最多推算 48 小時，僅供參考。</li>
+        <li><span class="color-box" style="background:#1a1a1a; border:1px solid #555;"></span><strong>灰色沉底 (未登記 / 已過期)：</strong>從未登記，或最後登記超過 48 小時（顯示最後記錄時間）。</li>
+    </ul>
 
-        <h3>🛠️ 進階操作技巧</h3>
-        <ul>
-            <li><strong>一鍵複製：</strong> 點擊上方可複製全團時刻表（自動排除每週王），或點擊單張卡片右上角的「📋 複製」，將時間貼到群組！</li>
-            <li><strong>自動防斷線：</strong> 只要網頁開著，每 15 分鐘系統會自動重新整理一次，確保連線永遠不斷！</li>
-        </ul>
-    </div>
+    <h3>🏷️ 頭目種類標籤</h3>
+    <ul>
+        <li><span class="color-box" style="border-left:4px solid #d4af37;"></span><strong>金色邊框 (間隔王)：</strong>依據擊殺時間往後推算。</li>
+        <li><span class="color-box" style="border-left:4px solid #4da6ff;"></span><strong>藍色邊框 (每日王)：</strong>每天固定時間出沒。</li>
+        <li><span class="color-box" style="border-left:4px solid #b266ff;"></span><strong>紫色邊框 (每週王)：</strong>每週固定日期時間出沒。</li>
+    </ul>
 
-    <script>
-        // =========================================================================
-        // 👇 Firebase 金鑰 👇
-        // =========================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyAqlwSt86d_7NQzNFhQz9gSbtQQ3WG9pF8",
-            authDomain: "bosstimer-cf701.firebaseapp.com",
-            databaseURL: "https://bosstimer-cf701-default-rtdb.firebaseio.com",
-            projectId: "bosstimer-cf701",
-            storageBucket: "bosstimer-cf701.firebasestorage.app",
-            messagingSenderId: "965297582620",
-            appId: "1:965297582620:web:382e36ca91b5f53050e5d9"
-        };
-        // =========================================================================
+    <h3>🛠️ 進階操作技巧</h3>
+    <ul>
+        <li><strong>推算時效：</strong>出現超過 30 分鐘後進入推算倒數，推算最多 48 小時，超過即顯示「已過期」並附上最後記錄時間。</li>
+        <li><strong>一鍵複製：</strong>點擊上方複製全團時刻表（自動排除每週王），或點擊單張卡片「📋 複製」貼到群組！</li>
+        <li><strong>快速輸入：</strong>點擊輸入框自動全選，輸入 <code>1647</code> 即可，日期由系統自動記錄，無需手動輸入。</li>
+        <li><strong>防斷線保護：</strong>系統每 15 分鐘會在背景自動刷新一次，確保長時間掛機也不會斷開連線。</li>
+        <li><strong>手機通知：</strong>iOS 用戶請將網頁<strong>「加入主畫面」</strong>，從桌面開啟才能收到橫幅通知。</li>
+    </ul>
+</div>
 
-        let db;
-        let isFirebaseActive = false;
+<script>
+// =========================================================================
+// 👇 Firebase 金鑰 👇
+// =========================================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAqlwSt86d_7NQzNFhQz9gSbtQQ3WG9pF8",
+    authDomain: "bosstimer-cf701.firebaseapp.com",
+    databaseURL: "https://bosstimer-cf701-default-rtdb.firebaseio.com",
+    projectId: "bosstimer-cf701",
+    storageBucket: "bosstimer-cf701.firebasestorage.app",
+    messagingSenderId: "965297582620",
+    appId: "1:965297582620:web:382e36ca91b5f53050e5d9"
+};
+// =========================================================================
 
-        const defaultBossConfig = {
-            "史前巨鱷": { type: 'interval', value: 4 }, "大腳": { type: 'interval', value: 4 },
-            "巨人": { type: 'interval', value: 12 }, "拉馬修": { type: 'interval', value: 8 },
-            "哈格馬": { type: 'interval', value: 8 }, "庫爾托": { type: 'interval', value: 8 }
-        };
-        const defaultRecords = {
-            "史前巨鱷": "11:05", "大腳": "15:02", "巨人": "09:14",
-            "拉馬修": "16:47", "哈格馬": "10:26", "庫爾托": null
-        };
+let db;
+let isFirebaseActive = false;
 
-        let bossConfig = JSON.parse(JSON.stringify(defaultBossConfig));
-        let bossData = JSON.parse(JSON.stringify(defaultRecords));
-        
-        let notifyMinutes = 5;
-        let isFastMode = false;
-        let isSoundEnabled = true;
-        let notifiedSpawns = {};
-        let audioCtx = null;
+const defaultBossConfig = {
+    "史前巨鱷": { type: 'interval', value: 4  },
+    "大腳":     { type: 'interval', value: 4  },
+    "巨人":     { type: 'interval', value: 12 },
+    "拉馬修":   { type: 'interval', value: 8  },
+    "哈格馬":   { type: 'interval', value: 8  },
+    "庫爾托":   { type: 'interval', value: 8  }
+};
+const defaultRecords = {
+    "史前巨鱷": null, "大腳": null, "巨人": null,
+    "拉馬修": null, "哈格馬": null, "庫爾托": null
+};
 
-        try {
-            const savedNotify = localStorage.getItem('bossNotifyMin');
-            if (savedNotify) notifyMinutes = parseInt(savedNotify);
-            const savedSound = localStorage.getItem('bossSoundEnabled');
-            if (savedSound !== null) isSoundEnabled = savedSound === 'true';
-        } catch (e) {}
-        
-        document.getElementById('notifyMin').value = notifyMinutes;
-        updateSpeedBtnUI();
-        updateSoundBtnUI();
-        checkNotificationStatus(); 
+let bossConfig = JSON.parse(JSON.stringify(defaultBossConfig));
+let bossData   = JSON.parse(JSON.stringify(defaultRecords));
 
-        document.body.addEventListener('click', function() {
-            if (isSoundEnabled) {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-            }
+let notifyMinutes  = 5;
+let isFastMode     = false;
+let isSoundEnabled = true;
+let notifiedSpawns = {};
+let audioCtx       = null;
+
+try {
+    const savedNotify = localStorage.getItem('bossNotifyMin');
+    if (savedNotify) notifyMinutes = parseInt(savedNotify);
+    const savedSound = localStorage.getItem('bossSoundEnabled');
+    if (savedSound !== null) isSoundEnabled = savedSound === 'true';
+} catch(e) {}
+
+document.getElementById('notifyMin').value = notifyMinutes;
+updateSpeedBtnUI();
+updateSoundBtnUI();
+checkNotificationStatus();
+
+document.body.addEventListener('click', function() {
+    if (isSoundEnabled) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+});
+
+// ===================== Firebase =====================
+if (firebaseConfig.apiKey) {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        isFirebaseActive = true;
+
+        const statusEl = document.getElementById('syncStatus');
+        statusEl.innerText = "🟢 雲端同步連線中... (等待資料)";
+        statusEl.style.color = "#a0ffaa";
+        statusEl.style.background = "#1a331a";
+
+        db.ref('settings/isFastMode').on('value', snap => {
+            const val = snap.val();
+            if (val !== null) { isFastMode = val; updateSpeedBtnUI(); updateAndSort(); }
         });
 
-        if (firebaseConfig.apiKey) {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.database();
-                isFirebaseActive = true;
-                
-                const statusEl = document.getElementById('syncStatus');
-                statusEl.innerText = "🟢 雲端同步連線中... (等待資料)";
-                statusEl.style.color = "#a0ffaa";
-                statusEl.style.background = "#1a331a";
+        db.ref('bossConfig').on('value', snap => {
+            const data = snap.val();
+            bossConfig = data || defaultBossConfig;
+            if (!data) db.ref('bossConfig').set(defaultBossConfig);
+            statusEl.innerText = "🟢 已連線：全團資料同步中";
+            renderBossCards();
+        });
 
-                db.ref('settings/isFastMode').on('value', (snapshot) => {
-                    const val = snapshot.val();
-                    if (val !== null) { isFastMode = val; updateSpeedBtnUI(); updateAndSort(); }
-                });
+        db.ref('bossData').on('value', snap => {
+            const data = snap.val();
+            if (data) {
+                Object.keys(bossConfig).forEach(n => { if (data[n] === undefined) data[n] = null; });
+                bossData = data;
+            } else {
+                db.ref('bossData').set(defaultRecords);
+                bossData = defaultRecords;
+            }
+            renderBossCards();
+        });
 
-                db.ref('bossConfig').on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) { bossConfig = data; } 
-                    else { db.ref('bossConfig').set(defaultBossConfig); bossConfig = defaultBossConfig; }
-                    statusEl.innerText = "🟢 已連線：全團資料同步中";
-                    renderBossCards();
-                });
+    } catch(e) {
+        console.error("Firebase 連線失敗", e);
+        document.getElementById('syncStatus').innerText = "🔴 雲端連線失敗，請檢查金鑰是否正確";
+        renderBossCards();
+    }
+} else {
+    renderBossCards();
+}
 
-                db.ref('bossData').on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        Object.keys(bossConfig).forEach(name => { if (data[name] === undefined) data[name] = null; });
-                        bossData = data;
+// ===================== 備份與還原 =====================
+window.exportData = function() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ config: bossConfig, records: bossData }));
+    const a = document.createElement('a');
+    a.setAttribute("href", dataStr);
+    a.setAttribute("download", "boss_timer_backup.json");
+    document.body.appendChild(a); a.click(); a.remove();
+};
+
+window.importData = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const d = JSON.parse(e.target.result);
+            if (d.config && d.records) {
+                if (isFirebaseActive) { db.ref('bossConfig').set(d.config); db.ref('bossData').set(d.records); }
+                else { bossConfig = d.config; bossData = d.records; }
+                alert("✅ 資料還原成功！");
+                document.getElementById('importFile').value = '';
+            } else { alert("❌ 檔案格式不正確！"); }
+        } catch(err) { alert("❌ 讀取檔案失敗！"); }
+    };
+    reader.readAsText(file);
+};
+
+// ===================== 時間解析工具 =====================
+
+/**
+ * 使用者輸入 "1647" 或 "16:47" → 存成 "YYYY-MM-DD HH:MM"
+ * 具備跨夜防呆機制：若輸入時間大於現在時間，自動判斷為昨天
+ */
+function parseTimeString(raw) {
+    if (!raw) return null;
+    let hhmm = raw.trim();
+    if (hhmm.length === 4 && !hhmm.includes(':')) hhmm = hhmm.slice(0,2) + ':' + hhmm.slice(2,4);
+    else if (hhmm.length === 3 && !hhmm.includes(':')) hhmm = '0' + hhmm.slice(0,1) + ':' + hhmm.slice(1,3);
+    if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hhmm)) return null;
+
+    const now = new Date();
+    const [h, m] = hhmm.split(':').map(Number);
+    let targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+
+    // 跨夜防呆：如果算出來的時間比現在還未來，代表是昨天打的
+    if (targetDate > now) {
+        targetDate.setDate(targetDate.getDate() - 1);
+    }
+
+    const yyyy = targetDate.getFullYear();
+    const mm_str = String(targetDate.getMonth()+1).padStart(2,'0');
+    const dd_str = String(targetDate.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm_str}-${dd_str} ${hhmm}`;
+}
+
+/**
+ * 資料庫記錄 → Date 物件
+ * 支援新格式 "2025-03-03 16:47" 及舊格式 "16:47"（舊格式視為今天或昨天）
+ */
+function parseRecordToDate(record) {
+    if (!record) return null;
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(record)) {
+        return new Date(record.replace(' ', 'T'));
+    }
+    // 舊格式相容
+    if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(record)) {
+        const now = new Date();
+        const [h, m] = record.split(':').map(Number);
+        let d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+        if (d > now) d.setDate(d.getDate() - 1);
+        return d;
+    }
+    return null;
+}
+
+/** 從完整記錄取出顯示用的 HH:MM（輸入框用） */
+function getDisplayHHMM(record) {
+    if (!record) return '';
+    return record.includes(' ') ? record.split(' ')[1] : record;
+}
+
+/** 從完整記錄取出顯示用的 "M/D HH:MM"（過期提示用） */
+function getDisplayDateTime(record) {
+    if (!record) return '';
+    if (record.includes(' ')) {
+        const [datePart, timePart] = record.split(' ');
+        const [, mm, dd] = datePart.split('-');
+        return `${parseInt(mm)}/${parseInt(dd)} ${timePart}`;
+    }
+    return record;
+}
+
+// ===================== 核心：計算間隔王目前狀態 =====================
+/**
+ * 回傳物件：
+ * state === 'justSpawned'  → 剛出現 30 分鐘內
+ * .spawnTime   : 出現的那個時間點 (Date)
+ * .passedMins  : 已經過幾分鐘
+ * .isEstimate  : 是否為推算（true = 橙色虛線）
+ *
+ * state === 'countdown'    → 倒數中
+ * .nextTime    : 下次出現時間 (Date)
+ * .isEstimate  : 是否為推算
+ */
+function calcIntervalBoss(killDate, intervalHours, now) {
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    const firstSpawn = new Date(killDate.getTime() + intervalMs);
+
+    // 找到最靠近現在的那一次出現時間
+    let theoreticalSpawn = new Date(firstSpawn.getTime());
+    while (theoreticalSpawn.getTime() + intervalMs <= now.getTime()) {
+        theoreticalSpawn = new Date(theoreticalSpawn.getTime() + intervalMs);
+    }
+
+    const isEstimate      = (theoreticalSpawn.getTime() !== firstSpawn.getTime());
+    const passedAfterSpawn = now - theoreticalSpawn; // 正 = 已過，負 = 還沒到
+
+    if (passedAfterSpawn >= 0) {
+        const passedMins = passedAfterSpawn / 1000 / 60;
+        if (passedMins <= 30) {
+            // 30 分鐘內：顯示「已出現」
+            return { state: 'justSpawned', spawnTime: theoreticalSpawn, passedMins, isEstimate };
+        } else {
+            // 超過 30 分鐘：推算下一輪倒數
+            const nextTime = new Date(theoreticalSpawn.getTime() + intervalMs);
+            return { state: 'countdown', nextTime, isEstimate: true };
+        }
+    } else {
+        // 還沒到，正常倒數
+        return { state: 'countdown', nextTime: theoreticalSpawn, isEstimate };
+    }
+}
+
+// ===================== 複製單一王 =====================
+window.copySingleBoss = function(name, btnEl) {
+    const config = bossConfig[name];
+    if (!config) return;
+    const now = new Date();
+    let timeText = "";
+
+    if (config.type === 'interval') {
+        const record = bossData[name];
+        if (!record) {
+            timeText = "未記錄";
+        } else {
+            const killDate = parseRecordToDate(record);
+            if (!killDate) {
+                timeText = "格式錯誤";
+            } else {
+                const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
+                const actualInterval = isFastMode ? config.value / 2 : config.value;
+                if (hoursSinceKill > 48) {
+                    timeText = "已過期";
+                } else {
+                    const result = calcIntervalBoss(killDate, actualInterval, now);
+                    if (result.state === 'justSpawned') {
+                        const h = String(result.spawnTime.getHours()).padStart(2,'0');
+                        const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
+                        timeText = result.isEstimate ? `約 ${h}:${m} (推算已出)` : `${h}:${m} (已出)`;
                     } else {
-                        db.ref('bossData').set(defaultRecords); bossData = defaultRecords;
+                        const h = String(result.nextTime.getHours()).padStart(2,'0');
+                        const m = String(result.nextTime.getMinutes()).padStart(2,'0');
+                        timeText = result.isEstimate ? `約 ${h}:${m} (推算)` : `${h}:${m}`;
                     }
-                    renderBossCards();
-                });
+                }
+            }
+        }
+    } else {
+        const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
+        const diffMs = nextSpawn - now;
+        const h = String(nextSpawn.getHours()).padStart(2,'0');
+        const m = String(nextSpawn.getMinutes()).padStart(2,'0');
+        timeText = (diffMs < 0 && Math.abs(diffMs) <= 30*60*1000) ? `${h}:${m} (已出)` : `${h}:${m}`;
+    }
 
-            } catch (e) {
-                console.error("Firebase 連線失敗", e);
-                document.getElementById('syncStatus').innerText = "🔴 雲端連線失敗，請檢查金鑰是否正確";
-                renderBossCards();
+    const text = `${name} ${timeText}`;
+    const origHTML = btnEl.innerHTML;
+    const ok = () => {
+        btnEl.innerHTML = "✅ 已複製";
+        btnEl.style.backgroundColor = "#2d5a27"; btnEl.style.borderColor = "#2d5a27";
+        setTimeout(() => { btnEl.innerHTML = origHTML; btnEl.style.backgroundColor = ""; btnEl.style.borderColor = ""; }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok).catch(() => fallbackCopy(text, ok));
+    else fallbackCopy(text, ok);
+};
+
+// ===================== 複製全團時刻表 =====================
+window.copyBossTimes = function() {
+    const now = new Date();
+    let arr = [];
+
+    Object.keys(bossConfig).forEach(name => {
+        const config = bossConfig[name];
+        if (config.type === 'weekly') return;
+
+        let timeText = "", orderWeight = 0;
+
+        if (config.type === 'interval') {
+            const record = bossData[name];
+            if (!record) {
+                timeText = "未記錄"; orderWeight = 200000000;
+            } else {
+                const killDate = parseRecordToDate(record);
+                if (!killDate) {
+                    timeText = "格式錯誤"; orderWeight = 200000000;
+                } else {
+                    const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
+                    const actualInterval = isFastMode ? config.value / 2 : config.value;
+                    if (hoursSinceKill > 48) {
+                        timeText = "已過期"; orderWeight = 190000000;
+                    } else {
+                        const result = calcIntervalBoss(killDate, actualInterval, now);
+                        if (result.state === 'justSpawned') {
+                            const h = String(result.spawnTime.getHours()).padStart(2,'0');
+                            const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
+                            timeText = result.isEstimate ? `約 ${h}:${m} (推算已出)` : `${h}:${m} (已出)`;
+                            orderWeight = 100000000 + (now - result.spawnTime);
+                        } else {
+                            const h = String(result.nextTime.getHours()).padStart(2,'0');
+                            const m = String(result.nextTime.getMinutes()).padStart(2,'0');
+                            timeText = result.isEstimate ? `約 ${h}:${m} (推算)` : `${h}:${m}`;
+                            orderWeight = result.nextTime - now;
+                        }
+                    }
+                }
             }
         } else {
-            renderBossCards();
-        }
-
-        // ================= 🌟 核心引擎：精準解析含有時間戳記的資料 =================
-        function getIntervalBossData(name, config) {
-            const rawRecord = bossData[name];
-            let killTimeStr = rawRecord;
-            let recordTimestamp = 0;
-            
-            // 解析時間戳記 (例如 "16:47|1710000000000")
-            if (typeof rawRecord === 'string' && rawRecord.includes('|')) {
-                let parts = rawRecord.split('|');
-                killTimeStr = parts[0];
-                recordTimestamp = parseInt(parts[1], 10);
-            }
-            
-            if (!killTimeStr || typeof killTimeStr !== 'string' || !killTimeStr.includes(':')) {
-                return { status: 'unrecorded' };
-            }
-
-            const now = new Date();
-            const actualInterval = isFastMode ? (config.value / 2) : config.value;
-            let killDate;
-
-            // 根據真實紀錄的時間戳記，還原最準確的擊殺日期
-            if (recordTimestamp > 0) {
-                let recDate = new Date(recordTimestamp);
-                const [killH, killM] = killTimeStr.split(':').map(Number);
-                killDate = new Date(recDate.getFullYear(), recDate.getMonth(), recDate.getDate(), killH || 0, killM || 0, 0);
-                
-                // 防呆：如果輸入的時間跨越了午夜 (例如 00:05 記錄了 23:55 的王)
-                if (killDate.getTime() - recDate.getTime() > 12 * 60 * 60 * 1000) {
-                    killDate.setDate(killDate.getDate() - 1);
-                } else if (recDate.getTime() - killDate.getTime() > 12 * 60 * 60 * 1000) {
-                    killDate.setDate(killDate.getDate() + 1);
-                }
+            const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
+            const diffMs = nextSpawn - now;
+            const h = String(nextSpawn.getHours()).padStart(2,'0');
+            const m = String(nextSpawn.getMinutes()).padStart(2,'0');
+            if (diffMs < 0 && Math.abs(diffMs) <= 30*60*1000) {
+                timeText = `${h}:${m} (已出)`; orderWeight = diffMs;
             } else {
-                // 舊資料相容模式 (無時間戳記)
-                const [killH, killM] = killTimeStr.split(':').map(Number);
-                killDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), killH || 0, killM || 0, 0);
-                if (killDate > now) killDate.setDate(killDate.getDate() - 1);
+                timeText = `${h}:${m}`; orderWeight = diffMs;
             }
+        }
+        arr.push({ name, timeText, weight: orderWeight });
+    });
 
-            let nextSpawnDate = new Date(killDate.getTime() + actualInterval * 60 * 60 * 1000);
-            
-            // 🌟 自動斷王判定：超過 24 小時未記錄，強制過期沉底
-            if (now.getTime() - nextSpawnDate.getTime() > 24 * 60 * 60 * 1000) {
-                return { status: 'expired', killTimeStr };
-            }
+    arr.sort((a,b) => a.weight - b.weight);
+    let text = "【宙斯08 頭目時刻表】\n";
+    arr.forEach(i => { text += `${i.name} ${i.timeText}\n`; });
 
-            let theoreticalSpawn = new Date(nextSpawnDate.getTime());
-            let isProjected = false;
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => alert("✅ 時刻表已複製！\n\n" + text)).catch(() => fallbackCopy(text));
+    } else { fallbackCopy(text); }
+};
 
-            // 超過 30 分鐘自動推算下一輪
-            while (now.getTime() - theoreticalSpawn.getTime() > 30 * 60 * 1000) {
-                theoreticalSpawn.setTime(theoreticalSpawn.getTime() + (actualInterval * 60 * 60 * 1000));
-                isProjected = true;
-            }
+function fallbackCopy(text, cb) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.cssText = "position:fixed;top:0;left:0;";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); if(cb) cb(); else alert("✅ 已複製！\n\n" + text); }
+    catch(e) { if(!cb) alert("❌ 複製失敗，請手動複製。"); }
+    document.body.removeChild(ta);
+}
 
-            const diffMs = theoreticalSpawn.getTime() - now.getTime();
-            const spH = String(theoreticalSpawn.getHours()).padStart(2, '0');
-            const spM = String(theoreticalSpawn.getMinutes()).padStart(2, '0');
+// ===================== UI 工具 =====================
+function checkNotificationStatus() {
+    if ("Notification" in window && Notification.permission === "granted") {
+        const btn = document.getElementById('notifyAuthBtn');
+        if (btn) { btn.innerText = "✅ 通知已授權"; btn.style.backgroundColor = "#2d5a27"; }
+    }
+}
 
-            return {
-                status: 'active',
-                killTimeStr,
-                theoreticalSpawn,
-                isProjected,
-                diffMs,
-                spH,
-                spM
-            };
+window.changeAddUI = function() {
+    const type = document.getElementById('newBossType').value;
+    document.getElementById('ui-interval').style.display = type === 'interval' ? 'inline-block' : 'none';
+    document.getElementById('ui-daily').style.display    = type === 'daily'    ? 'inline-block' : 'none';
+    document.getElementById('ui-weekly').style.display   = type === 'weekly'   ? 'inline-block' : 'none';
+};
+
+window.formatTimeInput   = function(input) { input.value = input.value.replace(/[^0-9:]/g, ''); };
+window.handleEnter       = function(event, name) { if (event.key === 'Enter') window.saveTime(name); };
+window.saveNotifySetting = function() {
+    notifyMinutes = parseInt(document.getElementById('notifyMin').value) || 5;
+    notifiedSpawns = {};
+    try { localStorage.setItem('bossNotifyMin', notifyMinutes); } catch(e) {}
+};
+
+function updateSpeedBtnUI() {
+    const btn = document.getElementById('speedToggleBtn');
+    if (isFastMode) { btn.className = "fast";   btn.innerText = "🔥 雙倍速模式 (全團同步中)"; }
+    else            { btn.className = "normal"; btn.innerText = "⏳ 正常間隔模式"; }
+}
+function updateSoundBtnUI() {
+    const btn = document.getElementById('soundToggleBtn');
+    if (isSoundEnabled) { btn.className = "sound-on-btn";  btn.innerText = "🔊 音效: 開"; }
+    else                { btn.className = "sound-off-btn"; btn.innerText = "🔇 音效: 關"; }
+}
+
+// ===================== 渲染卡片 =====================
+function renderBossCards() {
+    const container = document.getElementById('bossContainer');
+    container.innerHTML = '';
+
+    Object.keys(bossConfig).forEach(name => {
+        const config = bossConfig[name];
+        const card = document.createElement('div');
+        card.className = `boss-card type-${config.type}`;
+        card.id = `card-${name}`;
+
+        let modeTagHtml = '', controlHtml = '';
+
+        if (config.type === 'interval') {
+            const displayVal = isFastMode ? config.value / 2 : config.value;
+            const tagClass   = isFastMode ? "boss-tag fast-mode-text" : "boss-tag";
+            modeTagHtml = `<span class="${tagClass}">${isFastMode ? '加速' : '間隔'}${displayVal}H</span>`;
+
+            const savedRecord = bossData[name] || '';
+            const savedTime   = getDisplayHHMM(savedRecord);
+            controlHtml = `
+                <div style="display:flex;gap:5px;margin-bottom:2px;">
+                    <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)" title="複製此王">📋 複製</button>
+                    <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
+                </div>
+                <div class="control-row">
+                    <input type="text" class="time-input" id="input-${name}" value="${savedTime}"
+                        placeholder="1647" maxlength="5"
+                        oninput="formatTimeInput(this)"
+                        onkeypress="handleEnter(event,'${name}')"
+                        onfocus="this.select()">
+                    <button class="save-btn" onclick="saveTime('${name}')">記錄</button>
+                </div>
+                <button class="clear-btn" onclick="clearTime('${name}')">清除時間</button>
+            `;
+        } else if (config.type === 'daily') {
+            modeTagHtml = `<span class="boss-tag fixed-daily">每日 ${config.time}</span>`;
+            controlHtml = `<div style="display:flex;gap:5px;">
+                <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)">📋 複製</button>
+                <button class="delete-btn" onclick="deleteBoss('${name}')">✖</button>
+            </div>`;
+        } else if (config.type === 'weekly') {
+            const days = ["週日","週一","週二","週三","週四","週五","週六"];
+            modeTagHtml = `<span class="boss-tag fixed-weekly">${days[config.day]} ${config.time}</span>`;
+            controlHtml = `<div style="display:flex;gap:5px;">
+                <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)">📋 複製</button>
+                <button class="delete-btn" onclick="deleteBoss('${name}')">✖</button>
+            </div>`;
         }
 
-        function getNextFixedTime(now, type, timeStr, dayOfWeek) {
-            if (!timeStr) return now; 
-            const [tH, tM] = timeStr.split(':').map(Number);
-            let targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), tH || 0, tM || 0, 0);
+        card.innerHTML = `
+            <div class="info-section">
+                <div class="boss-name">${name} ${modeTagHtml}</div>
+                <div class="time-display" id="timeDisplay-${name}">計算中...</div>
+                <div class="boss-status" id="status-${name}">-</div>
+            </div>
+            <div class="control-section">${controlHtml}</div>
+        `;
+        container.appendChild(card);
+    });
+    updateAndSort();
+}
 
-            if (type === 'weekly') {
-                let currentDay = targetDate.getDay();
-                let dayDiff = dayOfWeek - currentDay;
-                if (dayDiff < 0 || (dayDiff === 0 && now.getTime() - targetDate.getTime() > 2 * 60 * 60 * 1000)) dayDiff += 7;
-                targetDate.setDate(targetDate.getDate() + dayDiff);
-            } else if (type === 'daily') {
-                if (now.getTime() - targetDate.getTime() > 2 * 60 * 60 * 1000) targetDate.setDate(targetDate.getDate() + 1);
-            }
-            return targetDate;
-        }
+window.addNewBoss = function() {
+    if (!isFirebaseActive) return alert("請先設定 Firebase 金鑰！");
+    const nameInput = document.getElementById('newBossName').value.trim();
+    const type      = document.getElementById('newBossType').value;
+    if (!nameInput) return alert("請輸入頭目名稱！");
+    if (bossConfig[nameInput]) return alert("這個頭目已在清單中！");
 
-        // ================= 備份與還原 =================
-        window.exportData = function() {
-            const backupData = { config: bossConfig, records: bossData };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "boss_timer_backup.json");
-            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+    let configObj = null;
+    if (type === 'interval') {
+        const val = parseFloat(document.getElementById('newBossInterval').value);
+        if (isNaN(val) || val <= 0) return alert("請輸入正確的間隔小時！");
+        configObj = { type: 'interval', value: val };
+    } else if (type === 'daily') {
+        let t = document.getElementById('newBossDailyTime').value.trim();
+        if (t.length === 4 && !t.includes(':')) t = t.slice(0,2)+':'+t.slice(2,4);
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(t)) return alert("請輸入正確的時間！");
+        configObj = { type: 'daily', time: t };
+    } else if (type === 'weekly') {
+        let t = document.getElementById('newBossWeeklyTime').value.trim();
+        if (t.length === 4 && !t.includes(':')) t = t.slice(0,2)+':'+t.slice(2,4);
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(t)) return alert("請輸入正確的時間！");
+        const d = parseInt(document.getElementById('newBossWeeklyDay').value);
+        configObj = { type: 'weekly', day: d, time: t };
+    }
+
+    db.ref('bossConfig/' + nameInput).set(configObj);
+    db.ref('bossData/'   + nameInput).set(null);
+    document.getElementById('newBossName').value = '';
+};
+
+window.deleteBoss = function(name) {
+    if (!isFirebaseActive) return;
+    if (confirm(`確定要移除「${name}」嗎？`)) {
+        db.ref('bossConfig/' + name).remove();
+        db.ref('bossData/'   + name).remove();
+    }
+};
+
+window.toggleSpeedMode = function() { if (isFirebaseActive) db.ref('settings/isFastMode').set(!isFastMode); };
+
+window.saveTime = function(name) {
+    if (!isFirebaseActive) return alert("請等待連線完成！");
+    const t = parseTimeString(document.getElementById(`input-${name}`).value.trim());
+    if (t) db.ref('bossData/' + name).set(t);
+    else alert("格式錯誤！請輸入如 1647 或 16:47");
+};
+
+window.clearTime = function(name) { if (isFirebaseActive) db.ref('bossData/' + name).set(null); };
+
+window.toggleSound = function() {
+    isSoundEnabled = !isSoundEnabled;
+    localStorage.setItem('bossSoundEnabled', isSoundEnabled);
+    if (isSoundEnabled) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    updateSoundBtnUI();
+};
+
+window.requestNotificationPermission = function() {
+    if (!("Notification" in window)) return alert("您的瀏覽器不支援桌面通知");
+    Notification.requestPermission().then(p => { if (p === "granted") checkNotificationStatus(); });
+};
+
+function playAlertSound() {
+    if (!isSoundEnabled) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+        const beep = () => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.type = 'square'; o.frequency.setValueAtTime(880, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.15);
         };
+        beep(); setTimeout(beep, 250);
+    } catch(e) { console.warn(e); }
+}
 
-        window.importData = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (importedData.config && importedData.records) {
-                        if (isFirebaseActive) {
-                            db.ref('bossConfig').set(importedData.config);
-                            db.ref('bossData').set(importedData.records);
-                        } else {
-                            bossConfig = importedData.config; bossData = importedData.records;
-                        }
-                        alert("✅ 資料還原成功！雲端已同步。"); document.getElementById('importFile').value = ''; 
-                    } else { alert("❌ 檔案格式不正確，請選擇匯出的備份檔！"); }
-                } catch (err) { alert("❌ 讀取檔案失敗！"); }
-            };
-            reader.readAsText(file);
-        };
+function triggerNotification(bossName, spawnTimeStr, minutesLeft) {
+    playAlertSound();
+    if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(`⚠️ ${bossName} 即將重生！`, {
+            body: `預計於 ${spawnTimeStr} 出現 (約剩餘 ${Math.ceil(minutesLeft)} 分鐘)`
+        });
+    }
+}
 
-        // ================= 🌟 複製單一隻王 =================
-        window.copySingleBoss = function(name, btnElement) {
-            const config = bossConfig[name];
-            if (!config) return;
-            const now = new Date();
-            let timeText = "";
+function getNextFixedTime(now, type, timeStr, dayOfWeek) {
+    if (!timeStr) return now;
+    const [tH, tM] = timeStr.split(':').map(Number);
+    let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), tH||0, tM||0, 0);
+    if (type === 'weekly') {
+        let diff = dayOfWeek - target.getDay();
+        if (diff < 0 || (diff === 0 && now - target > 2*60*60*1000)) diff += 7;
+        target.setDate(target.getDate() + diff);
+    } else if (type === 'daily') {
+        if (now - target > 2*60*60*1000) target.setDate(target.getDate() + 1);
+    }
+    return target;
+}
+
+// ===================== 主更新迴圈 =====================
+function updateAndSort() {
+    const now = new Date();
+    const hms = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2,'0'));
+    document.getElementById('currentTime').innerText = `現在時間: ${hms[0]}:${hms[1]}:${hms[2]}`;
+
+    let sortArray = [];
+
+    Object.keys(bossConfig).forEach(name => {
+        try {
+            const config    = bossConfig[name];
+            const card      = document.getElementById(`card-${name}`);
+            if (!card) return;
+            const displayEl = document.getElementById(`timeDisplay-${name}`);
+            const statusEl  = document.getElementById(`status-${name}`);
+
+            card.className = `boss-card type-${config.type}`;
+            let orderWeight = 0;
 
             if (config.type === 'interval') {
-                const data = getIntervalBossData(name, config);
-                if (data.status === 'unrecorded' || data.status === 'expired') {
-                    timeText = "未記錄/已斷王";
-                } else {
-                    if (data.diffMs > 0) {
-                        timeText = data.isProjected ? `約 ${data.spH}:${data.spM}` : `${data.spH}:${data.spM}`;
+                const record = bossData[name];
+
+                // ── A：從未登記 ──
+                if (!record) {
+                    card.className += ' expired';
+                    displayEl.innerText = "尚未記錄擊殺時間";
+                    statusEl.innerText  = '等待輸入...';
+                    statusEl.style.color = '#888';
+                    orderWeight = 200000000;
+                    sortArray.push({ name, weight: orderWeight }); return;
+                }
+
+                const killDate = parseRecordToDate(record);
+                if (!killDate) {
+                    card.className += ' expired';
+                    displayEl.innerText = "時間格式錯誤，請重新登記";
+                    statusEl.innerText  = '格式異常';
+                    statusEl.style.color = '#ff6b6b';
+                    orderWeight = 200000000;
+                    sortArray.push({ name, weight: orderWeight }); return;
+                }
+
+                const actualInterval  = isFastMode ? config.value / 2 : config.value;
+                const hoursSinceKill  = (now - killDate) / 1000 / 60 / 60;
+
+                // ── B：超過 48 小時 → 已過期 ──
+                if (hoursSinceKill > 48) {
+                    card.className += ' expired';
+                    displayEl.innerHTML = `已過期 <span style="color:#666;font-size:0.85em;">（最後記錄: ${getDisplayDateTime(record)}）</span>`;
+                    statusEl.innerText  = '請重新登記擊殺時間';
+                    statusEl.style.color = '#666';
+                    orderWeight = 190000000;
+                    sortArray.push({ name, weight: orderWeight }); return;
+                }
+
+                // ── C / D：正常計算 ──
+                const result      = calcIntervalBoss(killDate, actualInterval, now);
+                const killDisplay = getDisplayHHMM(record);
+
+                if (result.state === 'justSpawned') {
+                    // C：剛出現（30 分內）
+                    card.className += ' passed';
+                    const h = String(result.spawnTime.getHours()).padStart(2,'0');
+                    const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
+                    if (result.isEstimate) {
+                        displayEl.innerHTML = `推算 ➔ <strong style="color:#ff9933;">約 ${h}:${m}</strong>`;
+                        statusEl.innerText  = `⚠️ 已出現 (推算，經過 ${Math.floor(result.passedMins)} 分鐘)`;
                     } else {
-                        timeText = data.isProjected ? `約 ${data.spH}:${data.spM} (推算已出)` : `${data.spH}:${data.spM} (已出)`;
+                        displayEl.innerHTML = `擊殺 ${killDisplay} ➔ <strong>${h}:${m}</strong>`;
+                        statusEl.innerText  = `⚠️ 已出現 (經過 ${Math.floor(result.passedMins)} 分鐘)`;
+                    }
+                    statusEl.style.color = '#ff6b6b';
+                    orderWeight = 100000000 + (now - result.spawnTime);
+
+                } else {
+                    // D：倒數中
+                    const diffMs  = result.nextTime - now;
+                    const diffMin = diffMs / 1000 / 60;
+                    const npH     = String(result.nextTime.getHours()).padStart(2,'0');
+                    const npM     = String(result.nextTime.getMinutes()).padStart(2,'0');
+
+                    if (result.isEstimate) {
+                        displayEl.innerHTML  = `推算 ➔ <strong style="color:#ff9933;">約 ${npH}:${npM}</strong>`;
+                        card.className      += ' uncertain';
+                        statusEl.style.color = '#ff9933';
+                    } else {
+                        displayEl.innerHTML  = `擊殺 ${killDisplay} ➔ <strong>${npH}:${npM}</strong>`;
+                        card.className      += ' active';
+                        statusEl.style.color = '#d4af37';
+                    }
+
+                    if      (diffMin <= 10) { card.className += ' urgent';  statusEl.style.color = ''; }
+                    else if (diffMin <= 30) { card.className += ' warning'; statusEl.style.color = ''; }
+
+                    const hr  = Math.floor(diffMin / 60);
+                    const min = Math.floor(diffMin % 60);
+                    const sec = Math.floor((diffMs / 1000) % 60);
+                    statusEl.innerText = `${result.isEstimate ? '❓ 推算倒數' : '倒數中'}: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
+                    orderWeight = diffMs;
+
+                    const spawnId = `spawn-${name}-${result.nextTime.getTime()}`;
+                    if (diffMin <= notifyMinutes && !notifiedSpawns[spawnId]) {
+                        triggerNotification(name + (result.isEstimate ? " (推算)" : ""), `${npH}:${npM}`, diffMin);
+                        notifiedSpawns[spawnId] = true;
                     }
                 }
+
             } else {
-                let nextSpawnDate = getNextFixedTime(now, config.type, config.time, config.day);
-                const diffMs = nextSpawnDate.getTime() - now.getTime();
-                const spH = String(nextSpawnDate.getHours()).padStart(2, '0');
-                const spM = String(nextSpawnDate.getMinutes()).padStart(2, '0');
-                if (diffMs < 0 && Math.abs(diffMs) <= 30 * 60 * 1000) {
-                    timeText = `${spH}:${spM} (已出)`;
-                } else {
-                    timeText = `${spH}:${spM}`;
-                }
-            }
+                // ── 固定王（每日 / 每週）──
+                const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
+                const diffMs    = nextSpawn - now;
+                const spH       = String(nextSpawn.getHours()).padStart(2,'0');
+                const spM       = String(nextSpawn.getMinutes()).padStart(2,'0');
+                displayEl.innerHTML = `預計 <strong>${spH}:${spM}</strong>`;
 
-            let textToCopy = `${name} ${timeText}`;
-            const originalText = btnElement.innerHTML;
-            const doCopy = (text) => {
-                const showSuccess = () => {
-                    btnElement.innerHTML = "✅ 已複製"; btnElement.style.backgroundColor = "#2d5a27"; btnElement.style.borderColor = "#2d5a27";
-                    setTimeout(() => { btnElement.innerHTML = originalText; btnElement.style.backgroundColor = ""; btnElement.style.borderColor = ""; }, 1500);
-                };
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text).then(showSuccess).catch(() => fallbackCopyTextToClipboard(text, showSuccess));
-                } else { fallbackCopyTextToClipboard(text, showSuccess); }
-            };
-            doCopy(textToCopy);
-        };
+                if (diffMs > 0) {
+                    const diffMin = diffMs / 1000 / 60;
+                    if      (diffMin <= 10) { card.className += ' urgent';  statusEl.style.color = ''; }
+                    else if (diffMin <= 30) { card.className += ' warning'; statusEl.style.color = ''; }
+                    else {
+                        card.className      += ' active';
+                        statusEl.style.color = config.type === 'daily' ? '#4da6ff' : '#b266ff';
+                    }
+                    const hr  = Math.floor(diffMin / 60);
+                    const min = Math.floor(diffMin % 60);
+                    const sec = Math.floor((diffMs / 1000) % 60);
+                    statusEl.innerText = `倒數中: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
+                    orderWeight = diffMs;
 
-        // ================= 🌟 全團複製 =================
-        window.copyBossTimes = function() {
-            const now = new Date();
-            let copyArray = [];
-
-            Object.keys(bossConfig).forEach(name => {
-                const config = bossConfig[name];
-                if (config.type === 'weekly') return; 
-
-                let timeText = "";
-                let orderWeight = 0;
-
-                if (config.type === 'interval') {
-                    const data = getIntervalBossData(name, config);
-                    if (data.status === 'unrecorded' || data.status === 'expired') {
-                        timeText = "未記錄"; orderWeight = 200000000;
-                    } else {
-                        if (data.diffMs > 0) {
-                            timeText = data.isProjected ? `約 ${data.spH}:${data.spM}` : `${data.spH}:${data.spM}`;
-                            orderWeight = data.diffMs;
-                        } else {
-                            timeText = data.isProjected ? `約 ${data.spH}:${data.spM} (推算已出)` : `${data.spH}:${data.spM} (已出)`;
-                            orderWeight = 100000000 + Math.abs(data.diffMs); 
-                        }
+                    const spawnId = `${name}-${nextSpawn.getTime()}`;
+                    if (diffMin <= notifyMinutes && !notifiedSpawns[spawnId]) {
+                        triggerNotification(name, `${spH}:${spM}`, diffMin);
+                        notifiedSpawns[spawnId] = true;
                     }
                 } else {
-                    let nextSpawnDate = getNextFixedTime(now, config.type, config.time, config.day);
-                    const diffMs = nextSpawnDate.getTime() - now.getTime();
-                    const spH = String(nextSpawnDate.getHours()).padStart(2, '0');
-                    const spM = String(nextSpawnDate.getMinutes()).padStart(2, '0');
-                    
-                    if (diffMs < 0 && Math.abs(diffMs) <= 30 * 60 * 1000) {
-                        timeText = `${spH}:${spM} (已出)`; orderWeight = diffMs;
-                    } else {
-                        timeText = `${spH}:${spM}`; orderWeight = diffMs;
-                    }
+                    card.className += ' passed';
+                    statusEl.innerText  = `⚠️ 已出現 (經過 ${Math.floor(Math.abs(diffMs)/1000/60)} 分鐘)`;
+                    statusEl.style.color = '#ff6b6b';
+                    orderWeight = 100000000 + Math.abs(diffMs);
                 }
-                copyArray.push({ name, timeText, weight: orderWeight });
-            });
-
-            copyArray.sort((a, b) => a.weight - b.weight);
-            let textToCopy = "【宙斯08 頭目時刻表】\n";
-            copyArray.forEach(item => { textToCopy += `${item.name} ${item.timeText}\n`; });
-
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    alert("✅ 時刻表已複製！可以貼到 LINE 或 Discord 囉！\n\n預覽內容：\n" + textToCopy);
-                }).catch(err => { fallbackCopyTextToClipboard(textToCopy); });
-            } else { fallbackCopyTextToClipboard(textToCopy); }
-        };
-
-        function fallbackCopyTextToClipboard(text, successCallback) {
-            var textArea = document.createElement("textarea"); textArea.value = text;
-            textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.position = "fixed";
-            document.body.appendChild(textArea); textArea.focus(); textArea.select();
-            try {
-                document.execCommand('copy');
-                if(successCallback) successCallback(); else alert("✅ 時刻表已複製！可以貼到 LINE 或 Discord 囉！\n\n預覽內容：\n" + text);
-            } catch (err) {
-                if(!successCallback) alert("❌ 複製失敗，請手動選取文字複製。");
             }
-            document.body.removeChild(textArea);
+
+            sortArray.push({ name, weight: orderWeight });
+        } catch(err) {
+            console.warn(`[updateAndSort] 錯誤 (${name}):`, err);
         }
+    });
 
-        // ================= UI 與其他操作 =================
-        function checkNotificationStatus() {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const btn = document.getElementById('notifyAuthBtn');
-                if (btn) { btn.innerText = "✅ 通知已授權"; btn.style.backgroundColor = "#2d5a27"; }
-            }
-        }
+    sortArray.sort((a,b) => a.weight - b.weight);
+    sortArray.forEach((item, i) => {
+        const el = document.getElementById(`card-${item.name}`);
+        if (el) el.style.order = i;
+    });
+}
 
-        window.changeAddUI = function() {
-            const type = document.getElementById('newBossType').value;
-            document.getElementById('ui-interval').style.display = type === 'interval' ? 'inline-block' : 'none';
-            document.getElementById('ui-daily').style.display = type === 'daily' ? 'inline-block' : 'none';
-            document.getElementById('ui-weekly').style.display = type === 'weekly' ? 'inline-block' : 'none';
-        }
+setInterval(updateAndSort, 1000);
 
-        window.formatTimeInput = function(input) { input.value = input.value.replace(/[^0-9:]/g, ''); }
-        window.handleEnter = function(event, name) { if (event.key === 'Enter') window.saveTime(name); };
-        window.saveNotifySetting = function() {
-            notifyMinutes = parseInt(document.getElementById('notifyMin').value) || 5; notifiedSpawns = {}; 
-            try { localStorage.setItem('bossNotifyMin', notifyMinutes); } catch(e) {}
-        };
+// 🌟 新增：每 15 分鐘 (900,000 毫秒) 自動重新整理網頁，防休眠斷線
+setTimeout(() => { location.reload(); }, 900000);
 
-        function parseTimeString(timeVal) {
-            if (!timeVal) return null;
-            if (timeVal.length === 4 && !timeVal.includes(':')) timeVal = timeVal.substring(0,2) + ':' + timeVal.substring(2,4);
-            else if (timeVal.length === 3 && !timeVal.includes(':')) timeVal = '0' + timeVal.substring(0,1) + ':' + timeVal.substring(1,3);
-            if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeVal)) return timeVal;
-            return null;
-        }
-
-        function updateSpeedBtnUI() {
-            const btn = document.getElementById('speedToggleBtn');
-            if (isFastMode) { btn.className = "fast"; btn.innerText = "🔥 雙倍速模式 (全團同步中)"; } 
-            else { btn.className = "normal"; btn.innerText = "⏳ 正常間隔模式"; }
-        }
-
-        function updateSoundBtnUI() {
-            const btn = document.getElementById('soundToggleBtn');
-            if (isSoundEnabled) { btn.className = "sound-on-btn"; btn.innerText = "🔊 音效: 開"; } 
-            else { btn.className = "sound-off-btn"; btn.innerText = "🔇 音效: 關"; }
-        }
-
-        function renderBossCards() {
-            const container = document.getElementById('bossContainer');
-            container.innerHTML = ''; 
-
-            Object.keys(bossConfig).forEach(name => {
-                const config = bossConfig[name];
-                const card = document.createElement('div');
-                card.className = `boss-card type-${config.type}`;
-                card.id = `card-${name}`;
-                
-                let modeTagHtml = '';
-                let controlHtml = '';
-
-                if (config.type === 'interval') {
-                    const displayVal = isFastMode ? config.value / 2 : config.value;
-                    const tagClass = isFastMode ? "boss-tag fast-mode-text" : "boss-tag";
-                    modeTagHtml = `<span class="${tagClass}">${isFastMode ? '加速' : '間隔'}${displayVal}H</span>`;
-                    
-                    // 🌟 修正：輸入框只顯示純時間，不要顯示時間戳記
-                    let savedTime = bossData[name] || '';
-                    if (typeof savedTime === 'string' && savedTime.includes('|')) {
-                        savedTime = savedTime.split('|')[0];
-                    }
-
-                    controlHtml = `
-                        <div style="display:flex; gap:5px; margin-bottom: 2px;">
-                            <button class="copy-single-btn" onclick="copySingleBoss('${name}', this)" title="複製此王">📋 複製</button>
-                            <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
-                        </div>
-                        <div class="control-row">
-                            <input type="text" class="time-input" id="input-${name}" value="${savedTime}" placeholder="1647" maxlength="5" oninput="formatTimeInput(this)" onkeypress="handleEnter(event, '${name}')" onfocus="this.select()">
-                            <button class="save-btn" onclick="saveTime('${name}')">記錄</button>
-                        </div>
-                        <button class="clear-btn" onclick="clearTime('${name}')">清除時間</button>
-                    `;
-                } else if (config.type === 'daily') {
-                    modeTagHtml = `<span class="boss-tag fixed-daily">每日 ${config.time}</span>`;
-                    controlHtml = `
-                        <div style="display:flex; gap:5px;">
-                            <button class="copy-single-btn" onclick="copySingleBoss('${name}', this)" title="複製此王">📋 複製</button>
-                            <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
-                        </div>
-                    `;
-                } else if (config.type === 'weekly') {
-                    const days = ["週日","週一","週二","週三","週四","週五","週六"];
-                    modeTagHtml = `<span class="boss-tag fixed-weekly">${days[config.day]} ${config.time}</span>`;
-                    controlHtml = `
-                        <div style="display:flex; gap:5px;">
-                            <button class="copy-single-btn" onclick="copySingleBoss('${name}', this)" title="複製此王">📋 複製</button>
-                            <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
-                        </div>
-                    `;
-                }
-
-                card.innerHTML = `
-                    <div class="info-section">
-                        <div class="boss-name">${name} ${modeTagHtml}</div>
-                        <div class="time-display" id="timeDisplay-${name}">計算中...</div>
-                        <div class="boss-status" id="status-${name}">-</div>
-                    </div>
-                    <div class="control-section">${controlHtml}</div>
-                `;
-                container.appendChild(card);
-            });
-            updateAndSort();
-        }
-
-        window.addNewBoss = function() {
-            if (!isFirebaseActive) return alert("請先設定 Firebase 金鑰才能使用新增功能！");
-            const nameInput = document.getElementById('newBossName').value.trim();
-            const type = document.getElementById('newBossType').value;
-            if (!nameInput) return alert("請輸入頭目名稱！");
-            if (bossConfig[nameInput]) return alert("這個頭目已經在清單中囉！");
-
-            let configObj = null;
-            if (type === 'interval') {
-                const val = parseFloat(document.getElementById('newBossInterval').value);
-                if (isNaN(val) || val <= 0) return alert("請輸入正確的間隔小時！");
-                configObj = { type: 'interval', value: val };
-            } else if (type === 'daily') {
-                const t = parseTimeString(document.getElementById('newBossDailyTime').value.trim());
-                if (!t) return alert("請輸入正確的時間 (例如 20:00)！");
-                configObj = { type: 'daily', time: t };
-            } else if (type === 'weekly') {
-                const t = parseTimeString(document.getElementById('newBossWeeklyTime').value.trim());
-                if (!t) return alert("請輸入正確的時間！");
-                const d = parseInt(document.getElementById('newBossWeeklyDay').value);
-                configObj = { type: 'weekly', day: d, time: t };
-            }
-            db.ref('bossConfig/' + nameInput).set(configObj);
-            db.ref('bossData/' + nameInput).set(null);
-            document.getElementById('newBossName').value = '';
-        };
-
-        window.deleteBoss = function(name) {
-            if (!isFirebaseActive) return;
-            if (confirm(`確定要在全團清單中移除「${name}」嗎？`)) {
-                db.ref('bossConfig/' + name).remove(); db.ref('bossData/' + name).remove();
-            }
-        };
-
-        window.toggleSpeedMode = function() { if (!isFirebaseActive) return; db.ref('settings/isFastMode').set(!isFastMode); };
-
-        // 🌟 修正寫入邏輯：加入時間戳記
-        window.saveTime = function(name) {
-            if (!isFirebaseActive) return alert("請等待連線完成！");
-            let t = parseTimeString(document.getElementById(`input-${name}`).value.trim());
-            if (t) { 
-                const nowTs = Date.now();
-                db.ref('bossData/' + name).set(t + '|' + nowTs); 
-                document.getElementById(`input-${name}`).value = t; // 更新畫面
-            } else { alert("格式錯誤！請輸入如 1647 或 16:47"); }
-        };
-
-        window.clearTime = function(name) { 
-            if (!isFirebaseActive) return; 
-            db.ref('bossData/' + name).set(null); 
-            document.getElementById(`input-${name}`).value = ''; // 更新畫面
-        };
-
-        window.toggleSound = function() {
-            isSoundEnabled = !isSoundEnabled; localStorage.setItem('bossSoundEnabled', isSoundEnabled);
-            if (isSoundEnabled) {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-            }
-            updateSoundBtnUI();
-        };
-
-        window.requestNotificationPermission = function() {
-            if (!("Notification" in window)) return alert("您的瀏覽器不支援桌面通知");
-            Notification.requestPermission().then(permission => { if (permission === "granted") checkNotificationStatus(); });
-        };
-
-        function playAlertSound() {
-            if (!isSoundEnabled) return;
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            try {
-                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.type = 'square'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.15);
-                setTimeout(() => {
-                    const osc2 = audioCtx.createOscillator(); const gain2 = audioCtx.createGain();
-                    osc2.connect(gain2); gain2.connect(audioCtx.destination);
-                    osc2.type = 'square'; osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    osc2.start(audioCtx.currentTime); osc2.stop(audioCtx.currentTime + 0.15);
-                }, 250);
-            } catch (e) { console.warn(e); }
-        }
-
-        function triggerNotification(bossName, spawnTimeStr, minutesLeft) {
-            playAlertSound();
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(`⚠️ ${bossName} 即將重生！`, { body: `預計於 ${spawnTimeStr} 出現 (約剩餘 ${Math.ceil(minutesLeft)} 分鐘)` });
-            }
-        }
-
-        // ================= 🌟 畫面排版渲染 =================
-        function updateAndSort() {
-            const now = new Date();
-            const [nowH, nowM, nowS] = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2, '0'));
-            document.getElementById('currentTime').innerText = `現在時間: ${nowH}:${nowM}:${nowS}`;
-            
-            let sortArray = [];
-
-            Object.keys(bossConfig).forEach(name => {
-                try {
-                    const config = bossConfig[name];
-                    const card = document.getElementById(`card-${name}`);
-                    if (!card) return; 
-                    
-                    const displayEl = document.getElementById(`timeDisplay-${name}`);
-                    const statusEl = document.getElementById(`status-${name}`);
-                    
-                    card.className = `boss-card type-${config.type}`; // 重置
-                    let orderWeight = 0;
-
-                    if (config.type === 'interval') {
-                        const data = getIntervalBossData(name, config);
-                        
-                        if (data.status === 'unrecorded') {
-                            card.className += ` passed`; displayEl.innerText = "尚未記錄擊殺時間";
-                            statusEl.innerText = '等待輸入...'; statusEl.style.color = '#888';
-                            orderWeight = 200000000; sortArray.push({ name, weight: orderWeight }); return; 
-                        }
-                        
-                        if (data.status === 'expired') {
-                            card.className += ` passed`; 
-                            displayEl.innerHTML = `上次擊殺 ➔ <strong>${data.killTimeStr}</strong>`;
-                            statusEl.innerText = `⚠️ 斷王超過 24 小時，等待重新記錄`; 
-                            statusEl.style.color = '#888';
-                            orderWeight = 200000000; sortArray.push({ name, weight: orderWeight }); return;
-                        }
-
-                        if (data.diffMs > 0) {
-                            const diffMinutes = data.diffMs / 1000 / 60;
-                            if (data.isProjected) {
-                                displayEl.innerHTML = `推算 ➔ <strong style="color:#ff9933;">約 ${data.spH}:${data.spM}</strong>`;
-                                card.className += ` uncertain`; statusEl.style.color = '#ff9933';
-                            } else {
-                                displayEl.innerHTML = `擊殺 ${data.killTimeStr} ➔ <strong>${data.spH}:${data.spM}</strong>`;
-                                card.className += ` active`; statusEl.style.color = '#d4af37';
-                            }
-
-                            if (diffMinutes <= 10) { card.className += ` urgent`; statusEl.style.color = ''; } 
-                            else if (diffMinutes <= 30) { card.className += ` warning`; statusEl.style.color = ''; }
-
-                            const hr = Math.floor(diffMinutes / 60); const min = Math.floor(diffMinutes % 60); const sec = Math.floor((data.diffMs / 1000) % 60);
-                            statusEl.innerText = `${data.isProjected ? '❓ 推算倒數' : '倒數中'}: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
-                            orderWeight = data.diffMs; 
-
-                            const spawnId = `spawn-${name}-${data.theoreticalSpawn.getTime()}`;
-                            if (diffMinutes <= notifyMinutes && !notifiedSpawns[spawnId]) {
-                                triggerNotification(name + (data.isProjected ? " (推算)" : ""), data.spH + ":" + data.spM, diffMinutes);
-                                notifiedSpawns[spawnId] = true;
-                            }
-                        } else {
-                            card.className += ` passed`;
-                            const passedMins = Math.floor(Math.abs(data.diffMs) / 1000 / 60);
-                            if (data.isProjected) {
-                                displayEl.innerHTML = `推算 ➔ <strong style="color:#ff9933;">約 ${data.spH}:${data.spM}</strong>`;
-                                statusEl.innerText = `⚠️ 已出現 (推算經過 ${passedMins} 分鐘)`;
-                            } else {
-                                displayEl.innerHTML = `擊殺 ${data.killTimeStr} ➔ <strong>${data.spH}:${data.spM}</strong>`;
-                                statusEl.innerText = `⚠️ 已出現 (經過 ${passedMins} 分鐘)`;
-                            }
-                            statusEl.style.color = '#ff6b6b';
-                            orderWeight = 100000000 + Math.abs(data.diffMs); 
-                        }
-
-                    } else {
-                        let nextSpawnDate = getNextFixedTime(now, config.type, config.time, config.day);
-                        const spH = String(nextSpawnDate.getHours()).padStart(2, '0');
-                        const spM = String(nextSpawnDate.getMinutes()).padStart(2, '0');
-                        displayEl.innerHTML = `預計 <strong>${spH}:${spM}</strong>`;
-
-                        const diffMs = nextSpawnDate.getTime() - now.getTime();
-                        
-                        if (diffMs > 0) {
-                            const diffMinutes = diffMs / 1000 / 60;
-                            if (diffMinutes <= 10) { card.className += ` urgent`; statusEl.style.color = ''; } 
-                            else if (diffMinutes <= 30) { card.className += ` warning`; statusEl.style.color = ''; } 
-                            else { card.className += ` active`; statusEl.style.color = config.type === 'daily' ? '#4da6ff' : '#b266ff'; }
-
-                            const hr = Math.floor(diffMinutes / 60); const min = Math.floor(diffMinutes % 60); const sec = Math.floor((diffMs / 1000) % 60);
-                            statusEl.innerText = `倒數中: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`; orderWeight = diffMs; 
-
-                            const spawnId = `${name}-${nextSpawnDate.getTime()}`;
-                            if (diffMinutes <= notifyMinutes && !notifiedSpawns[spawnId]) {
-                                triggerNotification(name, spH+":"+spM, diffMinutes);
-                                notifiedSpawns[spawnId] = true;
-                            }
-                        } else {
-                            card.className += ` passed`;
-                            const passedMinutes = Math.floor(Math.abs(diffMs) / 1000 / 60);
-                            statusEl.innerText = `⚠️ 已出現 (經過 ${passedMinutes} 分鐘)`;
-                            statusEl.style.color = '#ff6b6b'; orderWeight = 100000000 + Math.abs(diffMs); 
-                        }
-                    }
-                    sortArray.push({ name, weight: orderWeight });
-                } catch (err) {}
-            });
-
-            sortArray.sort((a, b) => a.weight - b.weight);
-            sortArray.forEach((item, index) => {
-                const el = document.getElementById(`card-${item.name}`);
-                if (el) el.style.order = index;
-            });
-        }
-
-        setInterval(updateAndSort, 1000);
-
-        // 每 15 分鐘 (900,000 毫秒) 自動重新整理網頁
-        setTimeout(() => { location.reload(); }, 900000);
-
-    </script>
+</script>
 </body>
 </html>
