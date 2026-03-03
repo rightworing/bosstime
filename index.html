@@ -1,931 +1,1542 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>宙斯08頭目重生時間與通知</title>
-    <style>
-        body {
-            background-color: #121212; color: #e0e0e0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
+import tkinter as tk
+from tkinter import filedialog, messagebox, Toplevel, Listbox, Scrollbar, simpledialog
+import tkinter.ttk as ttk
+import re
+import html
+import math
+import os
+import sys
+import subprocess
+import getpass
+import datetime
+
+"""
+程式名稱：落版單資訊系統 (v94 線裝包台強化版)
+用途與目標：
+  協助使用者快速讀取、解析、編輯與儲存落版單 (DAT/XML) 資訊，提供視覺化介面操作，
+  並支援精確的「自動重排」功能，避免手動輸入造成的人為錯誤，提升印刷廠印前作業效率。
+
+使用方式：
+  1. 點擊「📂 讀檔」或在左側清單選擇檔案以載入落版單。
+  2. 系統會自動解析各項欄位（開數、裝訂、頁數、台次分配等）。
+  3. 若需調整台次配置，可在右側「重排總頁數」區塊輸入新的總頁數、首頁數與主文起始值。
+  4. 點擊「🔢 重新計算 / 自動重排」，系統將根據裝訂方式（平裝/騎馬釘/線裝）自動演算落版結構。
+  5. 確認無誤後，點擊「💾 存檔」寫回檔案。
+
+本次邏輯重大變動 (v94)：
+  1. [領域知識整合] 新增「線裝」專屬重排演算法。
+     - 規則：當裝訂包含「線裝」時，系統不再將零星台獨立列出，也不會包覆在末台。
+     - 實作：系統會自動將零星台次（如 4 頁、8 頁）完美包覆於「倒數第二個整台」中（例如：主17~24, (包8頁), 主33~40）。
+     - 邊界情況 (Edge Cases)：若總台數僅有 1 台且附帶零星頁，將退化為直接包覆該台；若全為零星無整台，則依序呈現。
+  2. 重構分配器 (Allocator)：將配頁邏輯抽象化為 plate_assignments 陣列，增加程式碼健壯性與未來擴充性。
+"""
+
+def check_for_updates():
+    if not getattr(sys, 'frozen', False):
+        return 
+
+    remote_dir = r"\\fn10p18\分享48\落版單資訊"
+    if not os.path.exists(remote_dir):
+        return 
+
+    local_exe_path = sys.argv[0] 
+    exe_name = os.path.basename(local_exe_path)
+    remote_exe_path = os.path.join(remote_dir, exe_name)
+
+    if not os.path.exists(remote_exe_path):
+        return 
+
+    try:
+        local_mtime = os.path.getmtime(local_exe_path)
+        remote_mtime = os.path.getmtime(remote_exe_path)
+
+        if remote_mtime > local_mtime + 2:
+            temp_root = tk.Tk()
+            temp_root.withdraw()
+            messagebox.showinfo("系統更新", "發現新版本！\n\n系統即將為您自動下載並重新啟動，請稍候幾秒鐘...")
+            temp_root.destroy()
+
+            local_dir = os.path.dirname(local_exe_path)
+            bat_path = os.path.join(local_dir, "update_script.bat")
+
+            bat_content = f"""@echo off
+echo 系統更新中，請勿關閉視窗...
+ping 127.0.0.1 -n 3 > nul
+xcopy "{remote_dir}\\*" "{local_dir}\\" /E /Y /C /I
+start "" "{local_exe_path}"
+del "%~f0"
+"""
+            with open(bat_path, "w", encoding="cp950", errors="ignore") as f:
+                f.write(bat_content)
+
+            subprocess.Popen([bat_path], shell=True)
+            sys.exit()
+
+    except Exception:
+        pass 
+
+class FinalPrecisionImpositionViewer:
+    
+    # ==========================================
+    # ⚙️ 軟體發布設定區 (請於每次發布前修改這裡)
+    # ==========================================
+    APP_DATE = "20260303"
+    APP_VER = "7" # 版本號推進
+    
+    def __init__(self, root):
+        self.root = root
+        
+        self.root.title(f"落版單資訊系統_{self.APP_DATE}_{self.APP_VER}")
+        self.root.geometry("1400x900") 
+
+        self.font_ui = ("Microsoft JhengHei", 10)
+        self.font_input = ("Microsoft JhengHei", 11, "bold")
+        self.font_header = ("Microsoft JhengHei", 12, "bold")
+        self.font_title = ("Microsoft JhengHei", 20, "bold")
+        self.font_content = ("Microsoft JhengHei", 10) 
+        self.font_note = ("Microsoft JhengHei", 12) 
+        
+        self.bg_main = "#F5F6F8"       
+        self.bg_canvas = "#FFFFFF"    
+        self.bg_input = "#F0F4F8"       
+        self.border_color = "#D1D5DB" 
+        self.accent_color = "#707B7C" 
+        self.text_primary = "#2C3E50" 
+        self.text_secondary = "#7F8C8D" 
+        
+        self.bg_1_2 = "#F6E3CE"   
+        self.bg_1_4 = "#A9CCE3"   
+        self.bg_1_8 = "#DDF2E4"   
+        self.bg_1_16 = "#E6DFED"  
+        self.bg_partial = "#F5F0D5" 
+
+        self.vars = {}
+        self.plate_vars = {} 
+        self.entry_widgets = {} 
+        self.anno_labels = {} 
+        self.note_text = None
+        self.stat_text_label = None 
+        self.current_max_index = 0
+        self.original_content = "" 
+        self.current_file_path = ""
+        self.partial_plate_indices = []
+        
+        self.original_raw_note = ""
+        self.original_clean_note = ""
+        
+        self.search_dir_var = tk.StringVar(value=r"Y:\落版資料")
+        self.search_keyword_var = tk.StringVar()
+        self.search_in_content_var = tk.BooleanVar(value=False) 
+        self.search_kai_var = tk.StringVar()
+        self.search_binding_var = tk.StringVar()
+        
+        self.search_results = [] 
+
+        self.setup_ui()
+
+    # ==========================================
+    # 核心機制：空白保真引擎
+    # ==========================================
+    def replace_preserve_ws(self, old_str, new_val):
+        """將舊字串替換為新值，但 100% 完美保留前後的半形空白、全形空白與換行符號"""
+        if not new_val:
+            return re.sub(r'[^\s\u3000\xa0]', '', old_str)
+            
+        m = re.match(r'^([\s\u3000\xa0]*)(.*?)([\s\u3000\xa0]*)$', old_str, re.DOTALL)
+        if m:
+            lead = m.group(1)
+            core = m.group(2)
+            trail = m.group(3)
+            
+            if core == "":
+                if "\n\n" in old_str:
+                    return old_str.replace("\n\n", f"\n{new_val}\n", 1)
+                elif "\n" in old_str:
+                    parts = old_str.split("\n", 1)
+                    return f"{parts[0]}\n{new_val}\n{parts[1]}"
+                else:
+                    mid = len(old_str) // 2
+                    return old_str[:mid] + new_val + old_str[mid:]
+            else:
+                return f"{lead}{new_val}{trail}"
+        return new_val
+
+    def setup_ui(self):
+        self.root.configure(bg=self.bg_main)
+        
+        toolbar = tk.Frame(self.root, bg=self.bg_main, pady=8, padx=15)
+        toolbar.pack(fill="x")
+        
+        btn_config = {'font': ("Microsoft JhengHei", 10, "bold"), 'padx': 15, 'pady': 3, 'relief': 'flat', 'cursor': 'hand2'}
+        
+        tk.Button(toolbar, text="📂 讀檔", command=self.load_file_dialog, 
+                  bg="#A2D9CE", fg="#17202A", activebackground="#76D7C4", activeforeground="#17202A", **btn_config).pack(side="left", padx=5)
+        
+        tk.Button(toolbar, text="💾 存檔", command=self.save_file, 
+                  bg="#AED6F1", fg="#17202A", activebackground="#85C1E9", activeforeground="#17202A", **btn_config).pack(side="left", padx=5)
+        
+        tk.Label(toolbar, text=" |  路徑:", bg=self.bg_main, fg=self.text_secondary, font=self.font_ui).pack(side="left", padx=(15, 2))
+        
+        tk.Entry(toolbar, textvariable=self.search_dir_var, width=25, font=self.font_ui, bg=self.bg_input, fg=self.text_primary, insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color).pack(side="left")
+        tk.Button(toolbar, text="📁", command=self.browse_search_folder, font=self.font_ui, bg="#E5E7E9", fg=self.text_primary, relief="flat", cursor="hand2").pack(side="left", padx=5)
+        
+        tk.Label(toolbar, text="關鍵字:", bg=self.bg_main, fg=self.text_secondary, font=self.font_ui).pack(side="left", padx=(10, 2))
+        entry_kw = tk.Entry(toolbar, textvariable=self.search_keyword_var, width=12, font=self.font_ui, bg=self.bg_input, fg=self.text_primary, insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color)
+        entry_kw.pack(side="left")
+        entry_kw.bind('<Return>', lambda e: self.execute_search())
+        
+        tk.Checkbutton(toolbar, text="含內文", variable=self.search_in_content_var, bg=self.bg_main, fg=self.text_secondary, font=self.font_ui, selectcolor=self.bg_main, activebackground=self.bg_main).pack(side="left", padx=2)
+        
+        tk.Label(toolbar, text="開數:", bg=self.bg_main, fg=self.text_secondary, font=self.font_ui).pack(side="left", padx=(5, 2))
+        kai_options = ["", "新25K", "25K", "18K", "16K", "16K(包台)", "8K", "菊8K", "特K(285x210)", "特K(260x210)", "菊4K", "32K", "32K(包台)", "菊12K(剖台)", "菊12K(整台)", "菊32K(50K)", "菊32K(合併台)"]
+        combo_kai = ttk.Combobox(toolbar, textvariable=self.search_kai_var, values=kai_options, width=10, font=self.font_ui)
+        combo_kai.pack(side="left", padx=2)
+        
+        tk.Label(toolbar, text="裝訂:", bg=self.bg_main, fg=self.text_secondary, font=self.font_ui).pack(side="left", padx=(5, 2))
+        binding_options = ["", "線裝", "膠裝", "釘裝", "糊頭", "單張", "騎馬釘", "騎馬釘(每回)"]
+        combo_binding = ttk.Combobox(toolbar, textvariable=self.search_binding_var, values=binding_options, width=10, font=self.font_ui)
+        combo_binding.pack(side="left", padx=2)
+        
+        tk.Button(toolbar, text="🔍 搜尋", command=self.execute_search, 
+                  bg="#F0D6B3", fg="#17202A", activebackground="#E5C49A", activeforeground="#17202A", **btn_config).pack(side="left", padx=15)
+
+        tk.Frame(self.root, bg="#E5E8E8", height=1).pack(fill="x") 
+
+        self.canvas = tk.Canvas(self.root, bg=self.bg_canvas, highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        
+        scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        self.draw_form()
+
+    def browse_search_folder(self):
+        folder_path = filedialog.askdirectory(initialdir=self.search_dir_var.get())
+        if folder_path:
+            self.search_dir_var.set(folder_path)
+
+    def execute_search(self):
+        folder = self.search_dir_var.get().strip()
+        keyword = self.search_keyword_var.get().strip().lower()
+        search_content = self.search_in_content_var.get()
+        
+        kai_filter = self.search_kai_var.get().strip()
+        binding_filter = self.search_binding_var.get().strip()
+        
+        self.search_results = []
+        
+        if not folder or not os.path.isdir(folder):
+            messagebox.showwarning("提示", "請輸入有效的資料夾路徑！")
+            return
+            
+        self.root.config(cursor="watch") 
+        self.root.update()
+            
+        try:
+            files_with_time = []
+            for root_dir, dirs, files in os.walk(folder):
+                for f in files:
+                    if f.lower().endswith(('.dat', '.xml')):
+                        full_path = os.path.join(root_dir, f)
+                        
+                        match_found = False
+                        file_text = None 
+                        
+                        if not keyword:
+                            match_found = True
+                        else:
+                            if keyword in f.lower():
+                                match_found = True
+                            elif search_content:
+                                try:
+                                    with open(full_path, 'r', encoding='cp950', errors='ignore') as file_obj: file_text = file_obj.read()
+                                except:
+                                    try:
+                                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as file_obj: file_text = file_obj.read()
+                                    except: pass
+                                if file_text and keyword in file_text.lower():
+                                    match_found = True
+                        
+                        if match_found and (kai_filter or binding_filter):
+                            if file_text is None:
+                                try:
+                                    with open(full_path, 'r', encoding='cp950', errors='ignore') as file_obj: file_text = file_obj.read()
+                                except:
+                                    try:
+                                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as file_obj: file_text = file_obj.read()
+                                    except: pass
+                            
+                            if file_text is None: file_text = ""
+                            
+                            if kai_filter:
+                                kai_match = re.search(r'開數[:：]\s*<LineCMD[^>]*>((?:(?!</LineCMD>|<LineCMDEND).)*?)(?:</LineCMD>|<LineCMDEND[^>]*>)', file_text, re.DOTALL)
+                                kai_val = self.clean_simple(kai_match.group(1)) if kai_match else ""
+                                if kai_filter not in kai_val:
+                                    match_found = False
+                            
+                            if binding_filter and match_found:
+                                binding_match = re.search(r'裝訂[:：]\s*<LineCMD[^>]*>((?:(?!</LineCMD>|<LineCMDEND).)*?)(?:</LineCMD>|<LineCMDEND[^>]*>)', file_text, re.DOTALL)
+                                binding_val = self.clean_simple(binding_match.group(1)) if binding_match else ""
+                                if binding_filter not in binding_val:
+                                    match_found = False
+                        
+                        if match_found:
+                            mtime = os.path.getmtime(full_path) 
+                            files_with_time.append((mtime, root_dir, f, full_path))
+            
+            files_with_time.sort(key=lambda x: x[0], reverse=True)
+            
+            for _, root_dir, f, full_path in files_with_time:
+                parent_folder = os.path.basename(root_dir)
+                display_name = f"[{parent_folder}] {f}"
+                self.search_results.append((display_name, full_path))
+            
+            self.update_listbox()
+            if not self.search_results:
+                messagebox.showinfo("搜尋結果", "找不到符合條件的檔案。")
+        except Exception as e:
+            messagebox.showerror("錯誤", f"搜尋發生錯誤:\n{e}")
+        finally:
+            self.root.config(cursor="") 
+
+    def update_listbox(self):
+        if hasattr(self, 'file_listbox') and self.file_listbox.winfo_exists():
+            self.file_listbox.delete(0, tk.END)
+            for item in self.search_results:
+                self.file_listbox.insert(tk.END, item[0])
+
+    def on_listbox_select(self, event):
+        selection = self.file_listbox.curselection()
+        if selection:
+            idx = selection[0]
+            target_path = self.search_results[idx][1]
+            self.process_file(target_path)
+
+    def draw_form(self):
+        saved_selection = None
+        saved_scroll = None
+        saved_note = ""
+        
+        if hasattr(self, 'file_listbox') and self.file_listbox.winfo_exists():
+            sel = self.file_listbox.curselection()
+            if sel: saved_selection = sel[0]
+            saved_scroll = self.file_listbox.yview()
+            
+        if self.note_text and self.note_text.winfo_exists():
+            saved_note = self.note_text.get("1.0", tk.END).strip()
+
+        c = self.canvas
+        c.delete("all") 
+        
+        for widget in self.canvas.winfo_children():
+            widget.destroy()
+            
+        self.entry_widgets = {} 
+        self.anno_labels = {} 
+
+        margin = 20
+        col_gap = 25
+        left_w = 500 
+        right_w = 820 
+        left_x = margin
+        right_x = left_x + left_w + col_gap
+
+        final_left_y = self.draw_left_panel(c, left_x, 20, left_w)
+
+        min_rows = 20
+        needed_rows = math.ceil(self.current_max_index / 2)
+        display_rows = max(min_rows, needed_rows)
+
+        final_right_y = self.draw_right_panel(c, right_x, 20, right_w, display_rows)
+
+        max_h = max(final_left_y, final_right_y) + 20
+        c.configure(scrollregion=(0, 0, right_x + right_w + margin, max_h))
+        
+        self.update_listbox()
+
+        if hasattr(self, 'file_listbox') and self.file_listbox.winfo_exists():
+            if saved_selection is not None and saved_selection < len(self.search_results):
+                self.file_listbox.select_set(saved_selection)
+                self.file_listbox.activate(saved_selection)
+            if saved_scroll is not None:
+                self.file_listbox.yview_moveto(saved_scroll[0])
+                
+        if saved_note and self.note_text and self.note_text.winfo_exists():
+            self.note_text.delete("1.0", tk.END)
+            self.note_text.insert("1.0", saved_note)
+
+    # --- 左側欄位 ---
+    def draw_left_panel(self, c, x, y, w):
+        curr_y = y
+        line_h = 35
+        
+        list_frame = tk.Frame(self.canvas, bg=self.bg_canvas, highlightthickness=1, highlightbackground=self.border_color)
+        tk.Label(list_frame, text="📄 點擊檔案以快速讀取:", bg=self.bg_main, fg=self.text_primary, font=("Microsoft JhengHei", 10, "bold"), anchor="w", pady=4, padx=8).pack(fill="x")
+        
+        self.file_listbox = tk.Listbox(list_frame, height=5, font=("Microsoft JhengHei", 10), bg=self.bg_input, fg=self.text_primary, 
+                                       selectbackground="#B4C6E7", selectforeground="#17202A", exportselection=False, relief="flat", bd=0)
+        list_scroll = tk.Scrollbar(list_frame, orient="vertical", command=self.file_listbox.yview)
+        self.file_listbox.config(yscrollcommand=list_scroll.set)
+        
+        list_scroll.pack(side="right", fill="y")
+        self.file_listbox.pack(side="left", fill="both", expand=True)
+        self.file_listbox.bind('<<ListboxSelect>>', self.on_listbox_select)
+        
+        c.create_window(x, curr_y, window=list_frame, width=w, height=110, anchor="nw")
+        curr_y += 125  
+
+        c.create_text(x, curr_y+10, text="店內碼:", anchor="w", font=self.font_header, fill=self.text_primary)
+        self.create_entry("shop_id", x+60, curr_y, 100, 26)
+        c.create_text(x+170, curr_y+10, text="編號:", anchor="w", font=self.font_header, fill=self.text_primary)
+        self.create_entry("job_code", x+215, curr_y, 90, 26)
+        c.create_text(x+315, curr_y+10, text="姓名:", anchor="w", font=self.font_header, fill=self.text_primary)
+        self.create_entry("name", x+360, curr_y, w-360, 26)
+        curr_y += 38
+
+        c.create_text(x, curr_y+10, text="書名:", anchor="w", font=self.font_header, fill=self.text_primary)
+        self.create_entry("title", x+50, curr_y, w-50, 26)
+        curr_y += 33
+
+        c.create_text(x, curr_y+10, text="日期:", anchor="w", font=self.font_header, fill=self.text_primary)
+        self.create_entry("date", x+50, curr_y, 200, 26)
+        curr_y += 40
+
+        box_y_start = curr_y
+        c.create_text(x, curr_y-12, text="規格詳情", anchor="w", font=("Microsoft JhengHei", 10, "bold"), fill=self.text_secondary)
+        
+        c.create_text(x+10, curr_y+15, text="製版:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("maker", x+55, curr_y+4, 160, 26)
+        c.create_text(x+230, curr_y+15, text="印刷:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("printer", x+275, curr_y+4, 160, 26)
+        curr_y += line_h
+
+        c.create_text(x+10, curr_y+15, text="版材:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_checkbox("plate_ps", "PS", x+55, curr_y+4)
+        self.create_checkbox("plate_ctp", "CTP", x+110, curr_y+4)
+        self.create_checkbox("plate_ctpk", "CTP-K", x+180, curr_y+4)
+        self.create_checkbox("plate_none", "不留", x+260, curr_y+4)
+        curr_y += line_h
+
+        c.create_text(x+10, curr_y+15, text="類別:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("category", x+55, curr_y+4, 160, 26)
+        c.create_text(x+230, curr_y+15, text="版式:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("format", x+275, curr_y+4, 160, 26)
+        curr_y += line_h
+
+        c.create_text(x+10, curr_y+15, text="開數:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        ent_kai = self.create_entry("kai", x+55, curr_y+4, 160, 26)
+        ent_kai.bind('<KeyRelease>', lambda e: self.calculate_totals())
+        
+        c.create_text(x+230, curr_y+15, text="裝訂:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("binding", x+275, curr_y+4, 160, 26)
+        curr_y += line_h
+
+        c.create_line(x+5, curr_y, x+w-5, curr_y, fill=self.border_color)
+        curr_y += 8
+
+        c.create_text(x+10, curr_y+15, text="成書:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("w_finish", x+55, curr_y+4, 60, 26)
+        c.create_text(x+120, curr_y+15, text="x", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        self.create_entry("h_finish", x+135, curr_y+4, 60, 26)
+        c.create_text(x+200, curr_y+15, text="cm", anchor="w", font=self.font_ui, fill=self.text_secondary)
+
+        c.create_text(x+230, curr_y+15, text="毛本:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("w_bleed", x+275, curr_y+4, 60, 26)
+        c.create_text(x+340, curr_y+15, text="x", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        self.create_entry("h_bleed", x+355, curr_y+4, 60, 26)
+        c.create_text(x+420, curr_y+15, text="cm", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        curr_y += line_h
+
+        c.create_text(x+10, curr_y+15, text="天:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("margin_top", x+45, curr_y+4, 50, 26)
+        c.create_text(x+110, curr_y+15, text="地:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("margin_bot", x+145, curr_y+4, 50, 26)
+        
+        c.create_text(x+210, curr_y+15, text="配件:", anchor="w", font=self.font_header, fill="#D35400")
+        self.create_entry("accessories_info", x+255, curr_y+4, w-265, 26)
+        curr_y += line_h
+
+        c.create_line(x+5, curr_y, x+w-5, curr_y, fill=self.border_color)
+        curr_y += 8
+
+        c.create_text(x+10, curr_y+15, text="印刷色:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("print_color", x+70, curr_y+4, 220, 26)
+        c.create_text(x+300, curr_y+15, text="公司:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("company", x+345, curr_y+4, w-355, 26)
+        curr_y += line_h
+
+        c.create_text(x+10, curr_y+15, text="用紙:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("p_size", x+55, curr_y+4, 130, 26)
+        self.create_entry("p_weight", x+200, curr_y+4, 50, 26)
+        c.create_text(x+255, curr_y+15, text="磅", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        curr_y += line_h
+
+        self.create_entry("p_type", x+55, curr_y+4, 150, 26)
+        c.create_text(x+210, curr_y+15, text="紙", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        c.create_text(x+240, curr_y+15, text="放數:", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("p_amount", x+285, curr_y+4, 80, 26)
+        c.create_text(x+370, curr_y+15, text="令", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        curr_y += line_h
+
+        c.create_rectangle(x, box_y_start, x+w, curr_y + 10, outline=self.border_color)
+        curr_y += 25
+
+        c.create_text(x, curr_y+10, text="其他注意事項:", anchor="w", font=self.font_header, fill=self.text_primary)
+        
+        self.note_text = tk.Text(self.root, height=8, font=self.font_note, bg=self.bg_input, fg=self.text_primary, 
+                                 insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color, wrap="char")
+        c.create_window(x, curr_y+25, window=self.note_text, width=w, height=150, anchor="nw")
+        
+        return curr_y + 185
+
+    # --- 右側表格 ---
+    def draw_right_panel(self, c, x, y, w, total_rows):
+        curr_y = y
+        h_row = 31 
+        mid_x = x + w/2
+        
+        c.create_rectangle(x, curr_y, x+w, curr_y+h_row, fill="#F8FAFC", outline=self.border_color)
+        c.create_line(mid_x, curr_y, mid_x, curr_y + h_row * (total_rows + 1), fill=self.border_color)
+        
+        c.create_text(x+25, curr_y+15, text="台次", font=self.font_header, fill=self.text_primary)
+        c.create_text(x+200, curr_y+15, text="起 迄 頁 碼 (內容)", font=self.font_header, fill=self.text_primary)
+        c.create_text(mid_x+25, curr_y+15, text="台次", font=self.font_header, fill=self.text_primary)
+        c.create_text(mid_x+200, curr_y+15, text="起 迄 頁 碼 (內容)", font=self.font_header, fill=self.text_primary)
+        
+        curr_y += h_row
+
+        for i in range(1, total_rows + 1):
+            row_y = curr_y + (i-1)*h_row
+            
+            c.create_rectangle(x, row_y, x+50, row_y+h_row, fill=self.bg_main, outline=self.border_color)
+            c.create_text(x+25, row_y+15, text=str(i), font=self.font_ui, fill=self.text_primary)
+            c.create_rectangle(x+50, row_y, mid_x, row_y+h_row, fill="", outline=self.border_color)
+            
+            l_ent_w = mid_x - x - 135
+            ent_l = self.create_entry(f"imp_{i}", x+55, row_y+3, l_ent_w, h_row-6, font=self.font_content)
+            
+            anno_l = tk.Label(self.canvas, text="", font=("Microsoft JhengHei", 9, "bold"), bg=self.bg_canvas, fg=self.text_primary)
+            c.create_window(x+55+l_ent_w+5, row_y+5, window=anno_l, anchor="nw")
+            self.anno_labels[f"imp_{i}"] = anno_l
+            
+            btn_up_l = tk.Button(self.root, text="▲", font=("Arial", 6), command=lambda idx=i: self.move_plate(idx, -1),
+                                 relief="flat", bg=self.bg_input, fg=self.text_secondary, activebackground="#BDC3C7", activeforeground="#2C3E50", bd=0, cursor="hand2")
+            btn_dn_l = tk.Button(self.root, text="▼", font=("Arial", 6), command=lambda idx=i: self.move_plate(idx, 1),
+                                 relief="flat", bg=self.bg_input, fg=self.text_secondary, activebackground="#BDC3C7", activeforeground="#2C3E50", bd=0, cursor="hand2")
+            c.create_window(mid_x-30, row_y+1, window=btn_up_l, height=13, width=25, anchor="nw")
+            c.create_window(mid_x-30, row_y+15, window=btn_dn_l, height=13, width=25, anchor="nw")
+
+            r_idx = i + total_rows
+            c.create_rectangle(mid_x, row_y, mid_x+50, row_y+h_row, fill=self.bg_main, outline=self.border_color)
+            c.create_text(mid_x+25, row_y+15, text=str(r_idx), font=self.font_ui, fill=self.text_primary)
+            c.create_rectangle(mid_x+50, row_y, x+w, row_y+h_row, fill="", outline=self.border_color)
+            
+            r_ent_w = x+w - mid_x - 135
+            ent_r = self.create_entry(f"imp_{r_idx}", mid_x+55, row_y+3, r_ent_w, h_row-6, font=self.font_content)
+            
+            anno_r = tk.Label(self.canvas, text="", font=("Microsoft JhengHei", 9, "bold"), bg=self.bg_canvas, fg=self.text_primary)
+            c.create_window(mid_x+55+r_ent_w+5, row_y+5, window=anno_r, anchor="nw")
+            self.anno_labels[f"imp_{r_idx}"] = anno_r
+            
+            btn_up_r = tk.Button(self.root, text="▲", font=("Arial", 6), command=lambda idx=r_idx: self.move_plate(idx, -1),
+                                 relief="flat", bg=self.bg_input, fg=self.text_secondary, activebackground="#BDC3C7", activeforeground="#2C3E50", bd=0, cursor="hand2")
+            btn_dn_r = tk.Button(self.root, text="▼", font=("Arial", 6), command=lambda idx=r_idx: self.move_plate(idx, 1),
+                                 relief="flat", bg=self.bg_input, fg=self.text_secondary, activebackground="#BDC3C7", activeforeground="#2C3E50", bd=0, cursor="hand2")
+            c.create_window(x+w-30, row_y+1, window=btn_up_r, height=13, width=25, anchor="nw")
+            c.create_window(x+w-30, row_y+15, window=btn_dn_r, height=13, width=25, anchor="nw")
+
+        stat_y = curr_y + total_rows * h_row + 15
+        
+        stat_frame = tk.Frame(self.canvas, bg=self.bg_canvas)
+        self.stat_text_label = tk.Label(stat_frame, text="總頁數: 0 頁 | 總台數: 0 台", 
+                                        font=("Microsoft JhengHei", 12, "bold"), 
+                                        fg="#1A5276", bg="#D4E6F1", 
+                                        padx=15, pady=4, relief="solid", bd=1)
+        self.stat_text_label.pack(side="left", padx=(0, 25))
+        c.create_window(x+10, stat_y, window=stat_frame, anchor="nw")
+        
+        recalc_y = stat_y + 40
+        recalc_frame = tk.Frame(self.canvas, bg=self.bg_canvas)
+        tk.Label(recalc_frame, text="重排總頁數:", bg=self.bg_canvas, fg="#D35400", font=("Microsoft JhengHei", 10, "bold")).pack(side="left")
+        self.target_pages_var = tk.StringVar()
+        tk.Entry(recalc_frame, textvariable=self.target_pages_var, width=5, font=self.font_ui, bg="#FDEBD0", fg=self.text_primary, insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color).pack(side="left", padx=2)
+        
+        tk.Label(recalc_frame, text=" 首:", bg=self.bg_canvas, fg="#1A5276", font=("Microsoft JhengHei", 10, "bold")).pack(side="left")
+        self.front_pages_var = tk.StringVar()
+        tk.Entry(recalc_frame, textvariable=self.front_pages_var, width=4, font=self.font_ui, bg="#D4E6F1", fg=self.text_primary, insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color).pack(side="left", padx=2)
+        
+        tk.Label(recalc_frame, text=" 主起:", bg=self.bg_canvas, fg="#1A5276", font=("Microsoft JhengHei", 10, "bold")).pack(side="left")
+        self.main_start_var = tk.StringVar()
+        tk.Entry(recalc_frame, textvariable=self.main_start_var, width=4, font=self.font_ui, bg="#D4E6F1", fg=self.text_primary, insertbackground=self.text_primary, relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color).pack(side="left", padx=2)
+        
+        calc_btn = tk.Button(recalc_frame, text="🔢 重新計算 / 自動重排", command=self.handle_recalculate, 
+                             bg="#E59866", fg="#FFFFFF", font=("Microsoft JhengHei", 10, "bold"), 
+                             relief="flat", activebackground="#D35400", activeforeground="#FFFFFF", padx=10, pady=2, cursor="hand2")
+        calc_btn.pack(side="left", padx=10)
+        c.create_window(x+10, recalc_y, window=recalc_frame, anchor="nw")
+
+        ad_y = recalc_y + 40
+        c.create_text(x, ad_y, text="【廣告頁設定】", anchor="w", font=self.font_header, fill="#C0392B")
+        
+        c.create_text(x+10, ad_y+30, text="廣告頁：P.", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("ad_start", x+90, ad_y+20, 50, 26)
+        c.create_text(x+150, ad_y+30, text="～", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        self.create_entry("ad_end", x+170, ad_y+20, 50, 26)
+
+        c.create_text(x+240, ad_y+30, text="餘頁空白：P.", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("blank_start", x+340, ad_y+20, 50, 26)
+        c.create_text(x+400, ad_y+30, text="～", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        self.create_entry("blank_end", x+420, ad_y+20, 50, 26)
+
+        c.create_text(x+490, ad_y+30, text="正文末頁：P.", anchor="w", font=self.font_ui, fill=self.text_primary)
+        self.create_entry("end_start", x+590, ad_y+20, 50, 26)
+        c.create_text(x+650, ad_y+30, text="～", anchor="w", font=self.font_ui, fill=self.text_secondary)
+        self.create_entry("end_end", x+670, ad_y+20, 50, 26)
+
+        return ad_y + 60
+
+    def create_entry(self, key, x, y, w, h, font=None):
+        if font is None: font = self.font_input
+        if key in self.vars:
+            var = self.vars[key]
+        else:
+            var = tk.StringVar()
+            self.vars[key] = var
+            
+        entry = tk.Entry(self.root, textvariable=var, font=font, bg=self.bg_input, fg=self.text_primary, insertbackground=self.text_primary,
+                         relief="flat", highlightthickness=1, highlightbackground=self.border_color, highlightcolor=self.accent_color)
+        self.canvas.create_window(x, y, window=entry, width=w, height=h, anchor="nw")
+        
+        self.entry_widgets[key] = entry
+        if key.startswith("imp_"):
+            entry.bind('<KeyRelease>', lambda e, k=key: self.check_entry_color(k))
+            self.root.after(50, lambda k=key: self.check_entry_color(k))
+            
+        return entry
+
+    def create_checkbox(self, key, text, x, y):
+        if key in self.plate_vars:
+            var = self.plate_vars[key]
+        else:
+            var = tk.BooleanVar()
+            self.plate_vars[key] = var
+        cb = tk.Checkbutton(self.root, text=text, variable=var, font=("Microsoft JhengHei", 10), bg=self.bg_canvas, fg=self.text_primary, selectcolor=self.bg_input, activebackground=self.bg_canvas, activeforeground=self.text_primary)
+        self.canvas.create_window(x, y, window=cb, anchor="nw")
+
+    def get_actual_max_index(self):
+        max_idx = 0
+        for k in self.vars.keys():
+            if k.startswith('imp_'):
+                try:
+                    idx = int(k.split('_')[1])
+                    if idx > max_idx: max_idx = idx
+                except: pass
+        return max_idx
+
+    def get_pages_per_plate(self):
+        kai_text = self.vars.get("kai", tk.StringVar()).get().strip()
+        if not kai_text: 
+            return 16 
+            
+        mapping = {
+            "菊32K(50K)": 64, "菊32K(合併台)": 64,
+            "新25K": 32, "25K": 32, "18K": 32, "32K": 32, "32K(包台)": 32,
+            "菊12K(剖台)": 12, "菊12K(整台)": 24,
+            "16K": 16, "16K(包台)": 16, "菊8K": 16, "特K(285x210)": 16, "特K(260x210)": 16,
+            "8K": 8, "菊4K": 8
         }
-
-        h1 { color: #d4af37; margin-bottom: 5px; text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); font-size: 1.8em; text-align: center; }
-        #currentTime { font-size: 1.2em; color: #888; margin-bottom: 15px; font-family: monospace; }
-        #syncStatus { font-size: 0.9em; color: #ff9999; margin-bottom: 15px; background: #331a1a; padding: 4px 10px; border-radius: 4px;}
-
-        .panel-container { width: 100%; max-width: 1200px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .settings-panel {
-            background-color: #1e1e1e; border: 1px solid #444; padding: 12px 15px;
-            border-radius: 6px; display: flex; flex-wrap: wrap; gap: 10px;
-            align-items: center; justify-content: space-between; box-sizing: border-box;
-        }
-
-        .notify-input, .add-input { text-align: center; background-color: #2c2c2c; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 6px; }
-        .notify-input { width: 40px; color: #d4af37; font-weight: bold; }
-        .add-input { width: 85px; } .add-input.short { width: 60px; }
-
-        .add-boss-group, .top-btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .add-boss-group { width: 100%; }
-
-        .boss-container { width: 100%; max-width: 1200px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 15px; align-items: start; }
-
-        .boss-card {
-            background-color: #1e1e1e; border: 2px solid #333; border-left-width: 8px;
-            padding: 12px 15px; border-radius: 8px;
-            display: flex; flex-wrap: nowrap;
-            justify-content: space-between; align-items: flex-start;
-            transition: all 0.3s ease-in-out; box-sizing: border-box; width: 100%;
-            gap: 10px;
-        }
-
-        .boss-card.active.type-interval { border-left-color: #d4af37; border-color: rgba(212, 175, 55, 0.4); background-color: #242424; }
-        .boss-card.active.type-daily    { border-left-color: #4da6ff; border-color: rgba(77, 166, 255, 0.4); background-color: #1a2938; }
-        .boss-card.active.type-weekly   { border-left-color: #b266ff; border-color: rgba(178, 102, 255, 0.4); background-color: #261a38; }
-
-        /* 推算中（虛線橙色） */
-        .boss-card.uncertain { border-style: dashed; border-color: #ff9933; background-color: #261a0d; }
-        .boss-card.uncertain.warning { border-style: dashed; border-color: #ffcc00; }
-        .boss-card.uncertain.urgent  { border-style: dashed; border-color: #ff1a1a; }
-
-        /* 警告 & 急迫 */
-        .boss-card.warning { border-left-color: #ffcc00; border-color: #ccaa00; background: linear-gradient(145deg, #554400, #221c00); box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); animation: pulseWarning 2s infinite; opacity: 1 !important; border-style: solid; }
-        .boss-card.urgent  { border-left-color: #ff1a1a; border-color: #ff1a1a; background: linear-gradient(145deg, #a01010, #3b0a0a); box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); animation: pulseUrgent 1s infinite; opacity: 1 !important; border-style: solid; }
-
-        /* 剛出現 30 分鐘內 */
-        .boss-card.passed { border-left-color: #555; border-color: #333; background-color: #1a1a1a; opacity: 0.5; }
-
-        /* 未登記 / 已過期（外觀相同，排最下方） */
-        .boss-card.expired { border-left-color: #555; border-color: #333; background-color: #1a1a1a; opacity: 0.45; }
-
-        .info-section { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; padding-top: 5px; }
-        .boss-name { font-size: 1.25em; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .boss-tag { font-size: 0.65em; background-color: #444; color: #ddd; padding: 3px 6px; border-radius: 4px; font-weight: normal; white-space: nowrap; flex-shrink: 0; }
-        .boss-tag.fixed-daily  { background-color: #004066; color: #80cfff; border: 1px solid #4da6ff; }
-        .boss-tag.fixed-weekly { background-color: #3b1f5c; color: #d9b3ff; border: 1px solid #b266ff; }
-        .boss-interval.fast-mode-text { color: #ff9999; font-weight: bold; }
-
-        .time-display { font-size: 1.1em; color: #ccc; white-space: nowrap; }
-        .boss-card.type-interval .time-display strong { color: #d4af37; font-size: 1.15em; transition: color 0.3s; }
-        .boss-card.type-daily   .time-display strong { color: #4da6ff; font-size: 1.15em; transition: color 0.3s; }
-        .boss-card.type-weekly  .time-display strong { color: #b266ff; font-size: 1.15em; transition: color 0.3s; }
-
-        .boss-card.warning .time-display strong { color: #ffe680; text-shadow: 0 0 10px #ffcc00; }
-        .boss-card.warning .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255,204,0,0.6); }
-        .boss-card.urgent  .time-display strong { color: #ffcccc; text-shadow: 0 0 10px #ff1a1a, 0 0 20px #ff1a1a; }
-        .boss-card.urgent  .boss-status { color: #ffffff !important; font-weight: bold; text-shadow: 0 0 5px rgba(255,0,0,0.8); }
-
-        .boss-status { font-size: 0.95em; font-family: monospace; white-space: nowrap; }
-
-        .control-section { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
-        .control-row { display: flex; gap: 4px; align-items: center; }
-
-        input.time-input { background-color: #2c2c2c; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 1em; width: 55px; text-align: center; font-family: monospace; }
-        input.time-input:focus { outline: 2px solid #d4af37; background-color: #3d3d3d; }
-
-        button { background-color: #444; color: #fff; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85em; transition: background 0.2s; white-space: nowrap; }
-        button:hover { background-color: #555; }
-        button.save-btn   { background-color: #2d5a27; } button.save-btn:hover   { background-color: #3b7533; }
-        button.clear-btn  { background-color: #8b4513; } button.clear-btn:hover  { background-color: #a0522d; }
-        button.delete-btn { background-color: transparent; border: 1px solid #660000; color: #ff6b6b; padding: 2px 6px; font-size: 0.75em; }
-        button.delete-btn:hover { background-color: #8b0000; color: #fff; }
-        button.notify-btn    { background-color: #0056b3; } button.notify-btn:hover    { background-color: #0073e6; }
-        button.sound-on-btn  { background-color: #2d5a27; font-weight: bold; }
-        button.sound-off-btn { background-color: #8b0000; color: #ccc; }
-        button.backup-btn { background-color: #5b3256; border: 1px solid #8c4c85; } button.backup-btn:hover { background-color: #7a4373; }
-        button.import-btn { background-color: #325b56; border: 1px solid #4c8c85; } button.import-btn:hover { background-color: #437a73; }
-        button.copy-btn { background-color: #2d5a88; border: 1px solid #4a82b5; font-weight: bold; }
-        button.copy-btn:hover { background-color: #3b75b3; }
-        button.copy-single-btn { background-color: #333; border: 1px solid #555; color: #ccc; padding: 2px 8px; font-size: 0.8em; transition: 0.2s; }
-        button.copy-single-btn:hover { background-color: #4a82b5; color: #fff; border-color: #4a82b5; }
-        button#speedToggleBtn { font-weight: bold; font-size: 0.9em; }
-        button#speedToggleBtn.normal { background-color: #555; }
-        button#speedToggleBtn.fast   { background-color: #b30000; box-shadow: 0 0 15px #ff4d4d; }
-
-        .instructions-panel {
-            width: 100%; max-width: 1200px; margin-top: 40px; margin-bottom: 20px;
-            background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px;
-            padding: 20px; color: #ccc; box-sizing: border-box; line-height: 1.6; font-size: 0.95em;
-        }
-        .instructions-panel h2 { color: #d4af37; font-size: 1.3em; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .instructions-panel h3 { color: #fff; font-size: 1.1em; margin-bottom: 5px; margin-top: 15px; }
-        .instructions-panel ul { margin-top: 5px; padding-left: 20px; }
-        .instructions-panel li { margin-bottom: 8px; }
-        .color-box { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 6px; vertical-align: text-bottom; }
-
-        @keyframes pulseWarning {
-            0%   { box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); }
-            50%  { box-shadow: 0 0 35px rgba(255,204,0,1),   inset 0 0 15px rgba(255,204,0,0.5); }
-            100% { box-shadow: 0 0 20px rgba(255,204,0,0.6), inset 0 0 10px rgba(255,204,0,0.2); }
-        }
-        @keyframes pulseUrgent {
-            0%   { box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); }
-            50%  { box-shadow: 0 0 40px rgba(255,0,0,1),   inset 0 0 15px rgba(255,0,0,0.6); }
-            100% { box-shadow: 0 0 25px rgba(255,0,0,0.8), inset 0 0 10px rgba(255,0,0,0.3); }
-        }
-    </style>
-
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-</head>
-<body>
-
-<h1>宙斯08頭目重生時間與通知</h1>
-<div id="syncStatus">🔴 尚未連線至雲端資料庫 (單機模式)</div>
-<div id="currentTime">現在時間: 載入中...</div>
-
-<div class="panel-container">
-    <div class="settings-panel">
-        <div class="top-btn-group">
-            <button class="copy-btn" onclick="copyBossTimes()">📋 複製全團時刻表</button>
-            <button class="backup-btn" onclick="exportData()">💾 匯出備份</button>
-            <button class="import-btn" onclick="document.getElementById('importFile').click()">📂 匯入還原</button>
-            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
-            <button id="notifyAuthBtn" class="notify-btn" onclick="requestNotificationPermission()">🔔 授權通知</button>
-            <button id="soundToggleBtn" class="sound-on-btn" onclick="toggleSound()">🔊 音效: 開</button>
-            <span style="font-size:0.9em; margin-left:5px;">提前 <input type="number" id="notifyMin" class="notify-input" value="5" min="1" max="60" onchange="saveNotifySetting()"> 分提醒</span>
-        </div>
-        <button id="speedToggleBtn" class="normal" onclick="toggleSpeedMode()">⏳ 正常間隔模式</button>
-    </div>
-
-    <div class="settings-panel" style="justify-content: flex-start;">
-        <div class="add-boss-group">
-            <span style="font-size:0.9em; color:#ccc;">➕ 新增:</span>
-            <input type="text" id="newBossName" class="add-input" placeholder="名稱">
-            <select id="newBossType" class="add-input" style="width:95px;" onchange="changeAddUI()">
-                <option value="interval">間隔倒數</option>
-                <option value="daily">每天固定</option>
-                <option value="weekly">每週固定</option>
-            </select>
-            <span id="ui-interval"><input type="number" id="newBossInterval" class="add-input short" placeholder="小時"></span>
-            <span id="ui-daily" style="display:none;"><input type="text" id="newBossDailyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)"></span>
-            <span id="ui-weekly" style="display:none;">
-                <select id="newBossWeeklyDay" class="add-input short" style="width:65px;">
-                    <option value="1">週一</option><option value="2">週二</option><option value="3">週三</option>
-                    <option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option>
-                </select>
-                <input type="text" id="newBossWeeklyTime" class="add-input short" placeholder="20:00" maxlength="5" oninput="formatTimeInput(this)">
-            </span>
-            <button class="save-btn" onclick="addNewBoss()">加入雲端</button>
-        </div>
-    </div>
-</div>
-
-<div class="boss-container" id="bossContainer"></div>
-
-<div class="instructions-panel">
-    <h2>📖 系統使用說明與顏色指南</h2>
-
-    <h3>🎨 卡片狀態與顏色</h3>
-    <ul>
-        <li><span class="color-box" style="background:#ffcc00;"></span><strong>黃色警戒：</strong>倒數 30 分鐘內，卡片會發出黃光閃爍。</li>
-        <li><span class="color-box" style="background:#ff1a1a;"></span><strong>紅色警戒：</strong>倒數 10 分鐘內，卡片會發出強烈紅光閃爍，準備出王！</li>
-        <li><span class="color-box" style="border:2px dashed #ff9933; background:#261a0d;"></span><strong>橙色虛線 (推算)：</strong>出現超過 30 分鐘後自動推算下一次，最多推算 24 小時，僅供參考。</li>
-        <li><span class="color-box" style="background:#1a1a1a; border:1px solid #555;"></span><strong>灰色沉底 (未登記 / 已過期)：</strong>從未登記，或最後登記超過 24 小時（顯示最後記錄時間）。</li>
-    </ul>
-
-    <h3>🏷️ 頭目種類標籤</h3>
-    <ul>
-        <li><span class="color-box" style="border-left:4px solid #d4af37;"></span><strong>金色邊框 (間隔王)：</strong>依據擊殺時間往後推算。</li>
-        <li><span class="color-box" style="border-left:4px solid #4da6ff;"></span><strong>藍色邊框 (每日王)：</strong>每天固定時間出沒。</li>
-        <li><span class="color-box" style="border-left:4px solid #b266ff;"></span><strong>紫色邊框 (每週王)：</strong>每週固定日期時間出沒。</li>
-    </ul>
-
-    <h3>🛠️ 進階操作技巧</h3>
-    <ul>
-        <li><strong>推算時效：</strong>出現超過 30 分鐘後進入推算倒數，推算最多 24 小時，超過即顯示「已過期」並附上最後記錄時間。</li>
-        <li><strong>一鍵複製：</strong>點擊上方複製全團時刻表（自動排除每週王），或點擊單張卡片「📋 複製」貼到群組！</li>
-        <li><strong>快速輸入：</strong>點擊輸入框自動全選，輸入 <code>1647</code> 即可，日期由系統自動記錄，無需手動輸入。</li>
-        <li><strong>防斷線保護：</strong>系統每 15 分鐘會在背景自動刷新一次，確保長時間掛機也不會斷開連線。</li>
-        <li><strong>手機通知：</strong>iOS 用戶請將網頁<strong>「加入主畫面」</strong>，從桌面開啟才能收到橫幅通知。</li>
-    </ul>
-</div>
-
-<script>
-// =========================================================================
-// 👇 Firebase 金鑰 👇
-// =========================================================================
-const firebaseConfig = {
-    apiKey: "AIzaSyAqlwSt86d_7NQzNFhQz9gSbtQQ3WG9pF8",
-    authDomain: "bosstimer-cf701.firebaseapp.com",
-    databaseURL: "https://bosstimer-cf701-default-rtdb.firebaseio.com",
-    projectId: "bosstimer-cf701",
-    storageBucket: "bosstimer-cf701.firebasestorage.app",
-    messagingSenderId: "965297582620",
-    appId: "1:965297582620:web:382e36ca91b5f53050e5d9"
-};
-// =========================================================================
-
-let db;
-let isFirebaseActive = false;
-
-const defaultBossConfig = {
-    "史前巨鱷": { type: 'interval', value: 4  },
-    "大腳":     { type: 'interval', value: 4  },
-    "巨人":     { type: 'interval', value: 12 },
-    "拉馬修":   { type: 'interval', value: 8  },
-    "哈格馬":   { type: 'interval', value: 8  },
-    "庫爾托":   { type: 'interval', value: 8  }
-};
-const defaultRecords = {
-    "史前巨鱷": null, "大腳": null, "巨人": null,
-    "拉馬修": null, "哈格馬": null, "庫爾托": null
-};
-
-let bossConfig = JSON.parse(JSON.stringify(defaultBossConfig));
-let bossData   = JSON.parse(JSON.stringify(defaultRecords));
-
-let notifyMinutes  = 5;
-let isFastMode     = false;
-let isSoundEnabled = true;
-let notifiedSpawns = {};
-let audioCtx       = null;
-
-try {
-    const savedNotify = localStorage.getItem('bossNotifyMin');
-    if (savedNotify) notifyMinutes = parseInt(savedNotify);
-    const savedSound = localStorage.getItem('bossSoundEnabled');
-    if (savedSound !== null) isSoundEnabled = savedSound === 'true';
-} catch(e) {}
-
-document.getElementById('notifyMin').value = notifyMinutes;
-updateSpeedBtnUI();
-updateSoundBtnUI();
-checkNotificationStatus();
-
-document.body.addEventListener('click', function() {
-    if (isSoundEnabled) {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-});
-
-// ===================== Firebase =====================
-if (firebaseConfig.apiKey) {
-    try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        isFirebaseActive = true;
-
-        const statusEl = document.getElementById('syncStatus');
-        statusEl.innerText = "🟢 雲端同步連線中... (等待資料)";
-        statusEl.style.color = "#a0ffaa";
-        statusEl.style.background = "#1a331a";
-
-        db.ref('settings/isFastMode').on('value', snap => {
-            const val = snap.val();
-            if (val !== null) { isFastMode = val; updateSpeedBtnUI(); updateAndSort(); }
-        });
-
-        db.ref('bossConfig').on('value', snap => {
-            const data = snap.val();
-            bossConfig = data || defaultBossConfig;
-            if (!data) db.ref('bossConfig').set(defaultBossConfig);
-            statusEl.innerText = "🟢 已連線：全團資料同步中";
-            renderBossCards();
-        });
-
-        db.ref('bossData').on('value', snap => {
-            const data = snap.val();
-            if (data) {
-                Object.keys(bossConfig).forEach(n => { if (data[n] === undefined) data[n] = null; });
-                bossData = data;
-            } else {
-                db.ref('bossData').set(defaultRecords);
-                bossData = defaultRecords;
-            }
-            renderBossCards();
-        });
-
-    } catch(e) {
-        console.error("Firebase 連線失敗", e);
-        document.getElementById('syncStatus').innerText = "🔴 雲端連線失敗，請檢查金鑰是否正確";
-        renderBossCards();
-    }
-} else {
-    renderBossCards();
-}
-
-// ===================== 備份與還原 =====================
-window.exportData = function() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ config: bossConfig, records: bossData }));
-    const a = document.createElement('a');
-    a.setAttribute("href", dataStr);
-    a.setAttribute("download", "boss_timer_backup.json");
-    document.body.appendChild(a); a.click(); a.remove();
-};
-
-window.importData = function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const d = JSON.parse(e.target.result);
-            if (d.config && d.records) {
-                if (isFirebaseActive) { db.ref('bossConfig').set(d.config); db.ref('bossData').set(d.records); }
-                else { bossConfig = d.config; bossData = d.records; }
-                alert("✅ 資料還原成功！");
-                document.getElementById('importFile').value = '';
-            } else { alert("❌ 檔案格式不正確！"); }
-        } catch(err) { alert("❌ 讀取檔案失敗！"); }
-    };
-    reader.readAsText(file);
-};
-
-// ===================== 時間解析工具 =====================
-
-/**
- * 使用者輸入 "1647" 或 "16:47" → 存成 "YYYY-MM-DD HH:MM"
- * 具備跨夜防呆機制：若輸入時間大於現在時間，自動判斷為昨天
- */
-function parseTimeString(raw) {
-    if (!raw) return null;
-    let hhmm = raw.trim();
-    if (hhmm.length === 4 && !hhmm.includes(':')) hhmm = hhmm.slice(0,2) + ':' + hhmm.slice(2,4);
-    else if (hhmm.length === 3 && !hhmm.includes(':')) hhmm = '0' + hhmm.slice(0,1) + ':' + hhmm.slice(1,3);
-    if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hhmm)) return null;
-
-    const now = new Date();
-    const [h, m] = hhmm.split(':').map(Number);
-    let targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
-
-    // 跨夜防呆：如果算出來的時間比現在還未來，代表是昨天打的
-    if (targetDate > now) {
-        targetDate.setDate(targetDate.getDate() - 1);
-    }
-
-    const yyyy = targetDate.getFullYear();
-    const mm_str = String(targetDate.getMonth()+1).padStart(2,'0');
-    const dd_str = String(targetDate.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm_str}-${dd_str} ${hhmm}`;
-}
-
-/**
- * 資料庫記錄 → Date 物件
- * 支援新格式 "2025-03-03 16:47" 及舊格式 "16:47"（舊格式視為今天或昨天）
- */
-function parseRecordToDate(record) {
-    if (!record) return null;
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(record)) {
-        return new Date(record.replace(' ', 'T'));
-    }
-    // 舊格式相容
-    if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(record)) {
-        const now = new Date();
-        const [h, m] = record.split(':').map(Number);
-        let d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
-        if (d > now) d.setDate(d.getDate() - 1);
-        return d;
-    }
-    return null;
-}
-
-/** 從完整記錄取出顯示用的 HH:MM（輸入框用） */
-function getDisplayHHMM(record) {
-    if (!record) return '';
-    return record.includes(' ') ? record.split(' ')[1] : record;
-}
-
-/** 從完整記錄取出顯示用的 "M/D HH:MM"（過期提示用） */
-function getDisplayDateTime(record) {
-    if (!record) return '';
-    if (record.includes(' ')) {
-        const [datePart, timePart] = record.split(' ');
-        const [, mm, dd] = datePart.split('-');
-        return `${parseInt(mm)}/${parseInt(dd)} ${timePart}`;
-    }
-    return record;
-}
-
-// ===================== 核心：計算間隔王目前狀態 =====================
-/**
- * 回傳物件：
- * state === 'justSpawned'  → 剛出現 30 分鐘內
- * .spawnTime   : 出現的那個時間點 (Date)
- * .passedMins  : 已經過幾分鐘
- * .isEstimate  : 是否為推算（true = 橙色虛線）
- *
- * state === 'countdown'    → 倒數中
- * .nextTime    : 下次出現時間 (Date)
- * .isEstimate  : 是否為推算
- */
-function calcIntervalBoss(killDate, intervalHours, now) {
-    const intervalMs = intervalHours * 60 * 60 * 1000;
-    const firstSpawn = new Date(killDate.getTime() + intervalMs);
-
-    // 找到最靠近現在的那一次出現時間
-    let theoreticalSpawn = new Date(firstSpawn.getTime());
-    while (theoreticalSpawn.getTime() + intervalMs <= now.getTime()) {
-        theoreticalSpawn = new Date(theoreticalSpawn.getTime() + intervalMs);
-    }
-
-    const isEstimate      = (theoreticalSpawn.getTime() !== firstSpawn.getTime());
-    const passedAfterSpawn = now - theoreticalSpawn; // 正 = 已過，負 = 還沒到
-
-    if (passedAfterSpawn >= 0) {
-        const passedMins = passedAfterSpawn / 1000 / 60;
-        if (passedMins <= 30) {
-            // 30 分鐘內：顯示「已出現」
-            return { state: 'justSpawned', spawnTime: theoreticalSpawn, passedMins, isEstimate };
-        } else {
-            // 超過 30 分鐘：推算下一輪倒數
-            const nextTime = new Date(theoreticalSpawn.getTime() + intervalMs);
-            return { state: 'countdown', nextTime, isEstimate: true };
-        }
-    } else {
-        // 還沒到，正常倒數
-        return { state: 'countdown', nextTime: theoreticalSpawn, isEstimate };
-    }
-}
-
-// ===================== 複製單一王 =====================
-window.copySingleBoss = function(name, btnEl) {
-    const config = bossConfig[name];
-    if (!config) return;
-    const now = new Date();
-    let timeText = "";
-
-    if (config.type === 'interval') {
-        const record = bossData[name];
-        if (!record) {
-            timeText = "未記錄";
-        } else {
-            const killDate = parseRecordToDate(record);
-            if (!killDate) {
-                timeText = "格式錯誤";
-            } else {
-                const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
-                const actualInterval = isFastMode ? config.value / 2 : config.value;
-                if (hoursSinceKill > 24) { // 統一為 24 小時過期
-                    timeText = "已過期";
-                } else {
-                    const result = calcIntervalBoss(killDate, actualInterval, now);
-                    if (result.state === 'justSpawned') {
-                        const h = String(result.spawnTime.getHours()).padStart(2,'0');
-                        const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
-                        timeText = result.isEstimate ? `約 ${h}:${m} (推算已出)` : `${h}:${m} (已出)`;
-                    } else {
-                        const h = String(result.nextTime.getHours()).padStart(2,'0');
-                        const m = String(result.nextTime.getMinutes()).padStart(2,'0');
-                        timeText = result.isEstimate ? `約 ${h}:${m} (推算)` : `${h}:${m}`;
-                    }
-                }
-            }
-        }
-    } else {
-        const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
-        const diffMs = nextSpawn - now;
-        const h = String(nextSpawn.getHours()).padStart(2,'0');
-        const m = String(nextSpawn.getMinutes()).padStart(2,'0');
-        timeText = (diffMs < 0 && Math.abs(diffMs) <= 30*60*1000) ? `${h}:${m} (已出)` : `${h}:${m}`;
-    }
-
-    const text = `${name} ${timeText}`;
-    const origHTML = btnEl.innerHTML;
-    const ok = () => {
-        btnEl.innerHTML = "✅ 已複製";
-        btnEl.style.backgroundColor = "#2d5a27";
-        btnEl.style.borderColor = "#2d5a27";
-        setTimeout(() => { btnEl.innerHTML = origHTML; btnEl.style.backgroundColor = ""; btnEl.style.borderColor = ""; }, 1500);
-    };
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok).catch(() => fallbackCopy(text, ok));
-    else fallbackCopy(text, ok);
-};
-
-// ===================== 複製全團時刻表 =====================
-window.copyBossTimes = function() {
-    const now = new Date();
-    let arr = [];
-
-    Object.keys(bossConfig).forEach(name => {
-        const config = bossConfig[name];
-        if (config.type === 'weekly') return;
-
-        let timeText = "", orderWeight = 0;
-
-        if (config.type === 'interval') {
-            const record = bossData[name];
-            if (!record) {
-                timeText = "未記錄"; orderWeight = 200000000;
-            } else {
-                const killDate = parseRecordToDate(record);
-                if (!killDate) {
-                    timeText = "格式錯誤"; orderWeight = 200000000;
-                } else {
-                    const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
-                    const actualInterval = isFastMode ? config.value / 2 : config.value;
-                    if (hoursSinceKill > 24) { // 統一為 24 小時過期
-                        timeText = "已過期"; orderWeight = 190000000;
-                    } else {
-                        const result = calcIntervalBoss(killDate, actualInterval, now);
-                        if (result.state === 'justSpawned') {
-                            const h = String(result.spawnTime.getHours()).padStart(2,'0');
-                            const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
-                            timeText = result.isEstimate ? `約 ${h}:${m} (推算已出)` : `${h}:${m} (已出)`;
-                            orderWeight = 100000000 + (now - result.spawnTime);
-                        } else {
-                            const h = String(result.nextTime.getHours()).padStart(2,'0');
-                            const m = String(result.nextTime.getMinutes()).padStart(2,'0');
-                            timeText = result.isEstimate ? `約 ${h}:${m} (推算)` : `${h}:${m}`;
-                            orderWeight = result.nextTime - now;
-                        }
-                    }
-                }
-            }
-        } else {
-            const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
-            const diffMs = nextSpawn - now;
-            const h = String(nextSpawn.getHours()).padStart(2,'0');
-            const m = String(nextSpawn.getMinutes()).padStart(2,'0');
-            if (diffMs < 0 && Math.abs(diffMs) <= 30*60*1000) {
-                timeText = `${h}:${m} (已出)`; orderWeight = diffMs;
-            } else {
-                timeText = `${h}:${m}`; orderWeight = diffMs;
-            }
-        }
-        arr.push({ name, timeText, weight: orderWeight });
-    });
-
-    arr.sort((a,b) => a.weight - b.weight);
-    let text = "【宙斯08 頭目時刻表】\n";
-    arr.forEach(i => { text += `${i.name} ${i.timeText}\n`; });
-
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => alert("✅ 時刻表已複製！\n\n" + text)).catch(() => fallbackCopy(text));
-    } else { fallbackCopy(text); }
-};
-
-function fallbackCopy(text, cb) {
-    const ta = document.createElement("textarea");
-    ta.value = text; ta.style.cssText = "position:fixed;top:0;left:0;";
-    document.body.appendChild(ta); ta.focus(); ta.select();
-    try { document.execCommand('copy'); if(cb) cb(); else alert("✅ 已複製！\n\n" + text); }
-    catch(e) { if(!cb) alert("❌ 複製失敗，請手動複製。"); }
-    document.body.removeChild(ta);
-}
-
-// ===================== UI 工具 =====================
-function checkNotificationStatus() {
-    if ("Notification" in window && Notification.permission === "granted") {
-        const btn = document.getElementById('notifyAuthBtn');
-        if (btn) { btn.innerText = "✅ 通知已授權"; btn.style.backgroundColor = "#2d5a27"; }
-    }
-}
-
-window.changeAddUI = function() {
-    const type = document.getElementById('newBossType').value;
-    document.getElementById('ui-interval').style.display = type === 'interval' ? 'inline-block' : 'none';
-    document.getElementById('ui-daily').style.display    = type === 'daily'    ? 'inline-block' : 'none';
-    document.getElementById('ui-weekly').style.display   = type === 'weekly'   ? 'inline-block' : 'none';
-};
-
-window.formatTimeInput   = function(input) { input.value = input.value.replace(/[^0-9:]/g, ''); };
-window.handleEnter       = function(event, name) { if (event.key === 'Enter') window.saveTime(name); };
-window.saveNotifySetting = function() {
-    notifyMinutes = parseInt(document.getElementById('notifyMin').value) || 5;
-    notifiedSpawns = {};
-    try { localStorage.setItem('bossNotifyMin', notifyMinutes); } catch(e) {}
-};
-
-function updateSpeedBtnUI() {
-    const btn = document.getElementById('speedToggleBtn');
-    if (isFastMode) { btn.className = "fast";   btn.innerText = "🔥 雙倍速模式 (全團同步中)"; }
-    else            { btn.className = "normal"; btn.innerText = "⏳ 正常間隔模式"; }
-}
-function updateSoundBtnUI() {
-    const btn = document.getElementById('soundToggleBtn');
-    if (isSoundEnabled) { btn.className = "sound-on-btn";  btn.innerText = "🔊 音效: 開"; }
-    else                { btn.className = "sound-off-btn"; btn.innerText = "🔇 音效: 關"; }
-}
-
-// ===================== 渲染卡片 =====================
-function renderBossCards() {
-    const container = document.getElementById('bossContainer');
-    container.innerHTML = '';
-
-    Object.keys(bossConfig).forEach(name => {
-        const config = bossConfig[name];
-        const card = document.createElement('div');
-        card.className = `boss-card type-${config.type}`;
-        card.id = `card-${name}`;
-
-        let modeTagHtml = '', controlHtml = '';
-
-        if (config.type === 'interval') {
-            const displayVal = isFastMode ? config.value / 2 : config.value;
-            const tagClass   = isFastMode ? "boss-tag fast-mode-text" : "boss-tag";
-            modeTagHtml = `<span class="${tagClass}">${isFastMode ? '加速' : '間隔'}${displayVal}H</span>`;
-
-            const savedRecord = bossData[name] || '';
-            const savedTime   = getDisplayHHMM(savedRecord);
-            controlHtml = `
-                <div style="display:flex;gap:5px;margin-bottom:2px;">
-                    <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)" title="複製此王">📋 複製</button>
-                    <button class="delete-btn" onclick="deleteBoss('${name}')" title="刪除此王">✖</button>
-                </div>
-                <div class="control-row">
-                    <input type="text" class="time-input" id="input-${name}" value="${savedTime}"
-                        placeholder="1647" maxlength="5"
-                        oninput="formatTimeInput(this)"
-                        onkeypress="handleEnter(event,'${name}')"
-                        onfocus="this.select()">
-                    <button class="save-btn" onclick="saveTime('${name}')">記錄</button>
-                </div>
-                <button class="clear-btn" onclick="clearTime('${name}')">清除時間</button>
-            `;
-        } else if (config.type === 'daily') {
-            modeTagHtml = `<span class="boss-tag fixed-daily">每日 ${config.time}</span>`;
-            controlHtml = `<div style="display:flex;gap:5px;">
-                <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)">📋 複製</button>
-                <button class="delete-btn" onclick="deleteBoss('${name}')">✖</button>
-            </div>`;
-        } else if (config.type === 'weekly') {
-            const days = ["週日","週一","週二","週三","週四","週五","週六"];
-            modeTagHtml = `<span class="boss-tag fixed-weekly">${days[config.day]} ${config.time}</span>`;
-            controlHtml = `<div style="display:flex;gap:5px;">
-                <button class="copy-single-btn" onclick="copySingleBoss('${name}',this)">📋 複製</button>
-                <button class="delete-btn" onclick="deleteBoss('${name}')">✖</button>
-            </div>`;
-        }
-
-        card.innerHTML = `
-            <div class="info-section">
-                <div class="boss-name">${name} ${modeTagHtml}</div>
-                <div class="time-display" id="timeDisplay-${name}">計算中...</div>
-                <div class="boss-status" id="status-${name}">-</div>
-            </div>
-            <div class="control-section">${controlHtml}</div>
-        `;
-        container.appendChild(card);
-    });
-    updateAndSort();
-}
-
-window.addNewBoss = function() {
-    if (!isFirebaseActive) return alert("請先設定 Firebase 金鑰！");
-    const nameInput = document.getElementById('newBossName').value.trim();
-    const type      = document.getElementById('newBossType').value;
-    if (!nameInput) return alert("請輸入頭目名稱！");
-    if (bossConfig[nameInput]) return alert("這個頭目已在清單中！");
-
-    let configObj = null;
-    if (type === 'interval') {
-        const val = parseFloat(document.getElementById('newBossInterval').value);
-        if (isNaN(val) || val <= 0) return alert("請輸入正確的間隔小時！");
-        configObj = { type: 'interval', value: val };
-    } else if (type === 'daily') {
-        let t = document.getElementById('newBossDailyTime').value.trim();
-        if (t.length === 4 && !t.includes(':')) t = t.slice(0,2)+':'+t.slice(2,4);
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(t)) return alert("請輸入正確的時間！");
-        configObj = { type: 'daily', time: t };
-    } else if (type === 'weekly') {
-        let t = document.getElementById('newBossWeeklyTime').value.trim();
-        if (t.length === 4 && !t.includes(':')) t = t.slice(0,2)+':'+t.slice(2,4);
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(t)) return alert("請輸入正確的時間！");
-        const d = parseInt(document.getElementById('newBossWeeklyDay').value);
-        configObj = { type: 'weekly', day: d, time: t };
-    }
-
-    db.ref('bossConfig/' + nameInput).set(configObj);
-    db.ref('bossData/'   + nameInput).set(null);
-    document.getElementById('newBossName').value = '';
-};
-
-window.deleteBoss = function(name) {
-    if (!isFirebaseActive) return;
-    if (confirm(`確定要移除「${name}」嗎？`)) {
-        db.ref('bossConfig/' + name).remove();
-        db.ref('bossData/'   + name).remove();
-    }
-};
-
-window.toggleSpeedMode = function() { if (isFirebaseActive) db.ref('settings/isFastMode').set(!isFastMode); };
-
-window.saveTime = function(name) {
-    if (!isFirebaseActive) return alert("請等待連線完成！");
-    const t = parseTimeString(document.getElementById(`input-${name}`).value.trim());
-    if (t) db.ref('bossData/' + name).set(t);
-    else alert("格式錯誤！請輸入如 1647 或 16:47");
-};
-
-window.clearTime = function(name) { if (isFirebaseActive) db.ref('bossData/' + name).set(null); };
-
-window.toggleSound = function() {
-    isSoundEnabled = !isSoundEnabled;
-    localStorage.setItem('bossSoundEnabled', isSoundEnabled);
-    if (isSoundEnabled) {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-    updateSoundBtnUI();
-};
-
-window.requestNotificationPermission = function() {
-    if (!("Notification" in window)) return alert("您的瀏覽器不支援桌面通知");
-    Notification.requestPermission().then(p => { if (p === "granted") checkNotificationStatus(); });
-};
-
-function playAlertSound() {
-    if (!isSoundEnabled) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    try {
-        const beep = () => {
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            o.connect(g); g.connect(audioCtx.destination);
-            o.type = 'square'; o.frequency.setValueAtTime(880, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.15);
-        };
-        beep(); setTimeout(beep, 250);
-    } catch(e) { console.warn(e); }
-}
-
-function triggerNotification(bossName, spawnTimeStr, minutesLeft) {
-    playAlertSound();
-    if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(`⚠️ ${bossName} 即將重生！`, {
-            body: `預計於 ${spawnTimeStr} 出現 (約剩餘 ${Math.ceil(minutesLeft)} 分鐘)`
-        });
-    }
-}
-
-function getNextFixedTime(now, type, timeStr, dayOfWeek) {
-    if (!timeStr) return now;
-    const [tH, tM] = timeStr.split(':').map(Number);
-    let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), tH||0, tM||0, 0);
-    if (type === 'weekly') {
-        let diff = dayOfWeek - target.getDay();
-        if (diff < 0 || (diff === 0 && now - target > 30 * 60 * 1000)) diff += 7; // 🌟 滿30分就切換
-        target.setDate(target.getDate() + diff);
-    } else if (type === 'daily') {
-        if (now - target > 30 * 60 * 1000) target.setDate(target.getDate() + 1); // 🌟 滿30分就切換
-    }
-    return target;
-}
-
-// ===================== 主更新迴圈 =====================
-function updateAndSort() {
-    const now = new Date();
-    const hms = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2,'0'));
-    document.getElementById('currentTime').innerText = `現在時間: ${hms[0]}:${hms[1]}:${hms[2]}`;
-
-    let sortArray = [];
-
-    Object.keys(bossConfig).forEach(name => {
-        try {
-            const config    = bossConfig[name];
-            const card      = document.getElementById(`card-${name}`);
-            if (!card) return;
-            const displayEl = document.getElementById(`timeDisplay-${name}`);
-            const statusEl  = document.getElementById(`status-${name}`);
-
-            card.className = `boss-card type-${config.type}`;
-            let orderWeight = 0;
-
-            if (config.type === 'interval') {
-                const record = bossData[name];
-
-                // ── A：從未登記 ──
-                if (!record) {
-                    card.className += ' expired';
-                    displayEl.innerText = "尚未記錄擊殺時間";
-                    statusEl.innerText  = '等待輸入...';
-                    statusEl.style.color = '#888';
-                    orderWeight = 200000000;
-                    sortArray.push({ name, weight: orderWeight }); return;
-                }
-
-                const killDate = parseRecordToDate(record);
-                if (!killDate) {
-                    card.className += ' expired';
-                    displayEl.innerText = "時間格式錯誤，請重新登記";
-                    statusEl.innerText  = '格式異常';
-                    statusEl.style.color = '#ff6b6b';
-                    orderWeight = 200000000;
-                    sortArray.push({ name, weight: orderWeight }); return;
-                }
-
-                const actualInterval  = isFastMode ? config.value / 2 : config.value;
-                const hoursSinceKill  = (now - killDate) / 1000 / 60 / 60;
-
-                // ── B：超過 24 小時 → 已過期 ──
-                if (hoursSinceKill > 24) { // 🌟 統一為 24 小時
-                    card.className += ' expired';
-                    displayEl.innerHTML = `已過期 <span style="color:#666;font-size:0.85em;">（最後記錄: ${getDisplayDateTime(record)}）</span>`;
-                    statusEl.innerText  = '請重新登記擊殺時間';
-                    statusEl.style.color = '#666';
-                    orderWeight = 190000000;
-                    sortArray.push({ name, weight: orderWeight }); return;
-                }
-
-                // ── C / D：正常計算 ──
-                const result      = calcIntervalBoss(killDate, actualInterval, now);
-                const killDisplay = getDisplayHHMM(record);
-
-                if (result.state === 'justSpawned') {
-                    // C：剛出現（30 分內）
-                    card.className += ' passed';
-                    const h = String(result.spawnTime.getHours()).padStart(2,'0');
-                    const m = String(result.spawnTime.getMinutes()).padStart(2,'0');
-                    if (result.isEstimate) {
-                        displayEl.innerHTML = `推算 ➔ <strong style="color:#ff9933;">約 ${h}:${m}</strong>`;
-                        statusEl.innerText  = `⚠️ 已出現 (推算，經過 ${Math.floor(result.passedMins)} 分鐘)`;
-                    } else {
-                        displayEl.innerHTML = `擊殺 ${killDisplay} ➔ <strong>${h}:${m}</strong>`;
-                        statusEl.innerText  = `⚠️ 已出現 (經過 ${Math.floor(result.passedMins)} 分鐘)`;
-                    }
-                    statusEl.style.color = '#ff6b6b';
-                    orderWeight = 100000000 + (now - result.spawnTime);
-
-                } else {
-                    // D：倒數中
-                    const diffMs  = result.nextTime - now;
-                    const diffMin = diffMs / 1000 / 60;
-                    const npH     = String(result.nextTime.getHours()).padStart(2,'0');
-                    const npM     = String(result.nextTime.getMinutes()).padStart(2,'0');
-
-                    if (result.isEstimate) {
-                        displayEl.innerHTML  = `推算 ➔ <strong style="color:#ff9933;">約 ${npH}:${npM}</strong>`;
-                        card.className      += ' uncertain';
-                        statusEl.style.color = '#ff9933';
-                    } else {
-                        displayEl.innerHTML  = `擊殺 ${killDisplay} ➔ <strong>${npH}:${npM}</strong>`;
-                        card.className      += ' active';
-                        statusEl.style.color = '#d4af37';
-                    }
-
-                    if      (diffMin <= 10) { card.className += ' urgent';  statusEl.style.color = ''; }
-                    else if (diffMin <= 30) { card.className += ' warning'; statusEl.style.color = ''; }
-
-                    const hr  = Math.floor(diffMin / 60);
-                    const min = Math.floor(diffMin % 60);
-                    const sec = Math.floor((diffMs / 1000) % 60);
-                    statusEl.innerText = `${result.isEstimate ? '❓ 推算倒數' : '倒數中'}: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
-                    orderWeight = diffMs;
-
-                    const spawnId = `spawn-${name}-${result.nextTime.getTime()}`;
-                    if (diffMin <= notifyMinutes && !notifiedSpawns[spawnId]) {
-                        triggerNotification(name + (result.isEstimate ? " (推算)" : ""), `${npH}:${npM}`, diffMin);
-                        notifiedSpawns[spawnId] = true;
-                    }
-                }
-
-            } else {
-                // ── 固定王（每日 / 每週）──
-                const nextSpawn = getNextFixedTime(now, config.type, config.time, config.day);
-                const diffMs    = nextSpawn - now;
-                const spH       = String(nextSpawn.getHours()).padStart(2,'0');
-                const spM       = String(nextSpawn.getMinutes()).padStart(2,'0');
-                displayEl.innerHTML = `預計 <strong>${spH}:${spM}</strong>`;
-
-                if (diffMs > 0) {
-                    const diffMin = diffMs / 1000 / 60;
-                    if      (diffMin <= 10) { card.className += ' urgent';  statusEl.style.color = ''; }
-                    else if (diffMin <= 30) { card.className += ' warning'; statusEl.style.color = ''; }
-                    else {
-                        card.className      += ' active';
-                        statusEl.style.color = config.type === 'daily' ? '#4da6ff' : '#b266ff';
-                    }
-                    const hr  = Math.floor(diffMin / 60);
-                    const min = Math.floor(diffMin % 60);
-                    const sec = Math.floor((diffMs / 1000) % 60);
-                    statusEl.innerText = `倒數中: ${hr > 0 ? hr+'小時 ' : ''}${min}分 ${sec}秒`;
-                    orderWeight = diffMs;
-
-                    const spawnId = `${name}-${nextSpawn.getTime()}`;
-                    if (diffMin <= notifyMinutes && !notifiedSpawns[spawnId]) {
-                        triggerNotification(name, `${spH}:${spM}`, diffMin);
-                        notifiedSpawns[spawnId] = true;
-                    }
-                } else {
-                    card.className += ' passed';
-                    statusEl.innerText  = `⚠️ 已出現 (經過 ${Math.floor(Math.abs(diffMs)/1000/60)} 分鐘)`;
-                    statusEl.style.color = '#ff6b6b';
-                    orderWeight = 100000000 + Math.abs(diffMs);
-                }
-            }
-
-            sortArray.push({ name, weight: orderWeight });
-        } catch(err) {
-            console.warn(`[updateAndSort] 錯誤 (${name}):`, err);
-        }
-    });
-
-    sortArray.sort((a,b) => a.weight - b.weight);
-    sortArray.forEach((item, i) => {
-        const el = document.getElementById(`card-${item.name}`);
-        if (el) el.style.order = i;
-    });
-}
-
-setInterval(updateAndSort, 1000);
-
-// 🌟 新增：每 15 分鐘 (900,000 毫秒) 自動重新整理網頁，防休眠斷線
-setTimeout(() => { location.reload(); }, 900000);
-
-</script>
-</body>
-</html>
+        
+        if kai_text in mapping: return mapping[kai_text]
+            
+        if "64" in kai_text: return 64
+        if any(x in kai_text for x in ["25", "18", "32"]): return 32
+        if "12" in kai_text: return 12 
+        if any(x in kai_text for x in ["16", "8"]): return 16
+        if "4" in kai_text: return 8
+        return 16 
+
+    def check_entry_color(self, key):
+        entry = self.entry_widgets.get(key)
+        anno_label = self.anno_labels.get(key)
+        if not entry: return
+        
+        text = entry.get().strip()
+        if not text:
+            entry.config(bg=self.bg_input, fg=self.text_primary)
+            if anno_label: anno_label.config(text="", bg=self.bg_canvas)
+            return
+            
+        ppp = self.get_pages_per_plate()
+        pages = self.parse_page_count_only(text)
+        
+        if 0 < pages < ppp:
+            if pages * 2 == ppp:
+                bg_color, anno_text = self.bg_1_2, "1/2 台"
+            elif pages * 4 == ppp:
+                bg_color, anno_text = self.bg_1_4, "1/4 台"
+            elif pages * 8 == ppp:
+                bg_color, anno_text = self.bg_1_8, "1/8 台"
+            elif pages * 16 == ppp:
+                bg_color, anno_text = self.bg_1_16, "1/16台"
+            else:
+                bg_color, anno_text = self.bg_partial, f"{pages} 頁"
+                
+            entry.config(bg=bg_color, fg=self.text_primary)
+            if anno_label: anno_label.config(text=anno_text, bg=self.bg_canvas, fg=self.text_secondary)
+        else:
+            entry.config(bg=self.bg_input, fg=self.text_primary)
+            if anno_label: anno_label.config(text="", bg=self.bg_canvas)
+
+    def parse_page_count_only(self, text):
+        total = 0
+        text = text.replace(' ', '').replace('　', '')
+        parts = re.split(r'[,，、]', text)
+        for part in parts:
+            if not part: continue
+            if re.match(r'^[\(（]包\d+頁[\)）]$', part): continue
+                
+            match = re.match(r'^([^0-9]*?)(\d+)[^0-9~～\-]*?[~～\-][^0-9]*?(\d+)(.*?)$', part)
+            if match:
+                total += (int(match.group(3)) - int(match.group(2)) + 1)
+            else:
+                match_single = re.match(r'^([^0-9]*?)(\d+).*?$', part)
+                if match_single: 
+                    total += 1
+                else:
+                    total += 1
+        return total
+
+    def extract_page_ranges(self, text):
+        ranges = []
+        text = text.replace(' ', '').replace('　', '')
+        if not text: return ranges
+        parts = re.split(r'[,，、]', text)
+        
+        for part in parts:
+            if not part: continue
+            if re.match(r'^[\(（]包\d+頁[\)）]$', part): continue
+                
+            match_range = re.match(r'^([^0-9]*?)(\d+)[^0-9~～\-]*?[~～\-][^0-9]*?(\d+)(.*?)$', part)
+            if match_range:
+                prefix = match_range.group(1)
+                start = int(match_range.group(2))
+                end = int(match_range.group(3))
+                suffix = match_range.group(4)
+                ranges.append((prefix, start, end, suffix))
+            else:
+                match_single = re.match(r'^([^0-9]*?)(\d+)(.*?)$', part)
+                if match_single:
+                    prefix, page, suffix = match_single.groups()
+                    ranges.append((prefix, int(page), int(page), suffix))
+                else:
+                    ranges.append((part, -1, -1, ""))
+        return ranges
+
+    def format_pages_to_string(self, page_list):
+        if not page_list: return ""
+        segments = []
+        
+        current_prefix, segment_start, current_suffix = page_list[0]
+        last_val = segment_start
+        
+        for i in range(1, len(page_list)):
+            prefix, num, suffix = page_list[i]
+            if num != -1 and prefix == current_prefix and suffix == current_suffix and num == last_val + 1:
+                last_val = num
+            else:
+                if segment_start == -1:
+                    segments.append(f"{current_prefix}")
+                elif segment_start == last_val:
+                    segments.append(f"{current_prefix}{segment_start}{current_suffix}")
+                else:
+                    segments.append(f"{current_prefix}{segment_start}~{last_val}{current_suffix}")
+                current_prefix = prefix
+                segment_start = num
+                current_suffix = suffix
+                last_val = num
+                
+        if segment_start == -1:
+            segments.append(f"{current_prefix}")
+        elif segment_start == last_val:
+            segments.append(f"{current_prefix}{segment_start}{current_suffix}")
+        else:
+            segments.append(f"{current_prefix}{segment_start}~{last_val}{current_suffix}")
+            
+        return ", ".join(segments)
+
+    def handle_recalculate(self):
+        target_val = self.target_pages_var.get().strip()
+        front_val = self.front_pages_var.get().strip()
+        
+        # 安全獲取主起值
+        main_start_val_str = getattr(self, 'main_start_var', tk.StringVar()).get().strip()
+        
+        front_pages = int(front_val) if front_val.isdigit() else 0
+        
+        # 解析主起始頁 (若空值或格式不正確，預設為 1)
+        try:
+            main_start_val = int(main_start_val_str)
+        except ValueError:
+            main_start_val = 1
+        
+        if target_val.isdigit():
+            target_pages = int(target_val)
+            
+            if target_pages % 4 != 0:
+                messagebox.showwarning("警告", "總頁數通常必須是 4 的倍數！此為印刷工藝限制。")
+                return
+            
+            binding_type = self.vars.get("binding", tk.StringVar()).get().strip()
+            is_saddle = "騎馬釘" in binding_type
+            is_thread_sewn = "線裝" in binding_type
+            
+            msg = f"即將根據總頁數 {target_pages} 頁（包含首頁 {front_pages} 頁，主文自 {main_start_val} 起算），自動重新分配所有台次。\n\n"
+            if is_saddle:
+                msg += "偵測到【騎馬釘】裝訂！\n配置規則：由外向內分配頁碼。\n"
+            elif is_thread_sewn:
+                msg += "偵測到【線裝】裝訂！\n配置規則：依據傳統工藝，零星台次將被『包』入倒數第二個整台中（末台的前一台）。\n"
+            else:
+                msg += "配置規則：膠裝/平釘模式。依序分發台數。\n"
+            msg += "注意：現有手動輸入的台次內容將被清除！\n\n確定要執行嗎？"
+            
+            if messagebox.askyesno("自動重排確認", msg):
+                self.auto_redistribute_plates(target_pages, is_saddle, is_thread_sewn, front_pages, main_start_val)
+        else:
+            self.calculate_totals()
+
+    # ---------------------------------------------------------
+    # [線性位移強化版]：針對含有首頁（Front Pages）的高級格式化器
+    # 支援透過 main_start 參數進行絕對座標的線性平移
+    # ---------------------------------------------------------
+    def format_idx_range(self, start_idx, end_idx, F, main_start):
+        if start_idx > end_idx: return ""
+        
+        # 情況 A：全部都在首頁區
+        if end_idx <= F:
+            return f"首{start_idx}~{end_idx}" if start_idx != end_idx else f"首{start_idx}"
+            
+        # 情況 B：全部都在主區 (正文)
+        elif start_idx > F:
+            m_start = start_idx - F - 1 + main_start
+            m_end = end_idx - F - 1 + main_start
+            return f"主{m_start}~{m_end}" if m_start != m_end else f"主{m_start}"
+            
+        # 情況 C：橫跨首頁與主區的邊界
+        else:
+            p1 = f"首{start_idx}~{F}" if start_idx != F else f"首{start_idx}"
+            m_start = main_start
+            m_end = end_idx - F - 1 + main_start
+            p2 = f"主{m_start}~{m_end}" if m_start != m_end else f"主{m_start}"
+            return f"{p1}, {p2}"
+
+    def auto_redistribute_plates(self, n_pages, is_saddle, is_thread_sewn, front_pages, main_start):
+        ppp = self.get_pages_per_plate()
+        Q = n_pages // ppp
+        R = n_pages % ppp
+        
+        partials = []
+        chunk = 4
+        temp_r = R
+        while temp_r > 0 and chunk <= 64:
+            if temp_r & chunk:
+                partials.append(chunk)
+                temp_r -= chunk
+            chunk *= 2
+            
+        if temp_r > 0:
+            partials.append(temp_r)
+            
+        # 清空現有欄位
+        for i in range(1, self.current_max_index + 1):
+            key = f"imp_{i}"
+            if key in self.vars:
+                self.vars[key].set("")
+                
+        if is_saddle:
+            sizes = []
+            sizes.extend(partials)
+            sizes.extend([ppp] * Q)
+            
+            front_p = 1
+            back_p = n_pages
+            for i, size in enumerate(sizes, 1):
+                key = f"imp_{i}"
+                if key not in self.vars:
+                    self.vars[key] = tk.StringVar()
+                
+                if i == len(sizes): 
+                    # 最後一台(最內層的騎馬釘台次)
+                    self.vars[key].set(self.format_idx_range(front_p, back_p, front_pages, main_start))
+                else:
+                    half = size // 2
+                    f_start = front_p
+                    f_end = front_p + half - 1
+                    b_start = back_p - half + 1
+                    b_end = back_p
+                    
+                    wrapped = b_start - f_end - 1
+                    
+                    part_f = self.format_idx_range(f_start, f_end, front_pages, main_start)
+                    part_b = self.format_idx_range(b_start, b_end, front_pages, main_start)
+                    
+                    self.vars[key].set(f"{part_f}, (包{wrapped}頁), {part_b}")
+                    
+                    front_p += half
+                    back_p -= half
+                    
+                if i > self.current_max_index:
+                    self.current_max_index = i
+        else:
+            # 準備台次分配策略 [ (Type, MainSize, WrapSize), ... ]
+            plate_assignments = []
+            
+            if is_thread_sewn and R > 0 and Q > 0:
+                # 【線裝專屬邏輯】：將零星台包覆在倒數第二個整台中
+                if Q >= 2:
+                    for _ in range(Q - 2):
+                        plate_assignments.append(("NORMAL", ppp, 0))
+                    plate_assignments.append(("WRAPPED", ppp, R))
+                    plate_assignments.append(("NORMAL", ppp, 0))
+                else:
+                    # 極端情況：只有一台整台卻有零星，只好包在第一台(唯一一台)
+                    plate_assignments.append(("WRAPPED", ppp, R))
+            else:
+                # 一般膠裝或平裝：依序分配，將零星台置於最後一台之前
+                if Q > 0:
+                    for _ in range(Q - 1):
+                        plate_assignments.append(("NORMAL", ppp, 0))
+                    for p in partials:
+                        plate_assignments.append(("NORMAL", p, 0))
+                    plate_assignments.append(("NORMAL", ppp, 0))
+                else:
+                    for p in partials:
+                        plate_assignments.append(("NORMAL", p, 0))
+
+            curr_pg = 1
+            for i, (p_type, main_size, wrap_size) in enumerate(plate_assignments, 1):
+                key = f"imp_{i}"
+                if key not in self.vars:
+                    self.vars[key] = tk.StringVar()
+                
+                if p_type == "NORMAL":
+                    # 一般平裝分配邏輯，透過位移格式化器自動處理起始座標
+                    self.vars[key].set(self.format_idx_range(curr_pg, curr_pg + main_size - 1, front_pages, main_start))
+                    curr_pg += main_size
+                elif p_type == "WRAPPED":
+                    # 線裝包台邏輯：前半部整台 + 內部零星台 + 後半部整台
+                    half = main_size // 2
+                    
+                    f_start = curr_pg
+                    f_end = curr_pg + half - 1
+                    
+                    inner_start = f_end + 1
+                    inner_end = inner_start + wrap_size - 1
+                    
+                    b_start = inner_end + 1
+                    b_end = b_start + half - 1
+                    
+                    part_f = self.format_idx_range(f_start, f_end, front_pages, main_start)
+                    part_b = self.format_idx_range(b_start, b_end, front_pages, main_start)
+                    
+                    self.vars[key].set(f"{part_f}, (包{wrap_size}頁), {part_b}")
+                    
+                    curr_pg += main_size + wrap_size
+                
+                if i > self.current_max_index:
+                    self.current_max_index = i
+            
+        self.target_pages_var.set("") 
+        self.front_pages_var.set("")
+        if hasattr(self, 'main_start_var'):
+            self.main_start_var.set("")
+        self.draw_form()
+        self.root.after(100, self.calculate_totals)
+
+    def calculate_totals(self):
+        total_pages = 0
+        ppp = self.get_pages_per_plate()
+        self.partial_plate_indices = []
+        
+        actual_max = self.get_actual_max_index()
+        
+        for i in range(1, actual_max + 1):
+            key = f"imp_{i}"
+            if key in self.vars:
+                content = self.vars[key].get().strip()
+                if content:
+                    pages = self.parse_page_count_only(content)
+                    total_pages += pages
+                    if 0 < pages < ppp: self.partial_plate_indices.append(i)
+                    if key in self.entry_widgets: self.check_entry_color(key)
+        
+        plate_count = total_pages / ppp if ppp > 0 else 0
+        formatted_plate_count = f"{plate_count:g}"
+        
+        full_plates = total_pages // ppp
+        partial_pages = total_pages % ppp
+        
+        plate_info = f"總頁數: {total_pages} 頁 ({full_plates}整台" + (f" + {partial_pages}頁)" if partial_pages else ")")
+        plate_info += f"  [規格: {ppp}頁/台]"
+        
+        if self.partial_plate_indices:
+            partial_list = ", ".join([f"台{i}" for i in self.partial_plate_indices])
+            plate_info += f" [零星: {partial_list}]"
+            
+        final_text = f"{plate_info}    |    總台數: {formatted_plate_count} 台"
+        if hasattr(self, 'stat_text_label') and self.stat_text_label.winfo_exists():
+            self.stat_text_label.config(text=final_text)
+
+    def move_plate(self, index, direction):
+        actual_max = self.get_actual_max_index()
+        target = index + direction
+        if target < 1 or target > actual_max: return
+        
+        capacities = []
+        is_wrap = []
+        all_pages = []
+        prefix_order = {}
+        order_counter = 0
+        
+        for i in range(1, actual_max + 1):
+            key = f"imp_{i}"
+            if key in self.vars:
+                content = self.vars[key].get().strip()
+                
+                has_wrap = False
+                parts = re.split(r'[,，、]', content.replace(' ', '').replace('　', ''))
+                for part in parts:
+                    if re.match(r'^[\(（]包\d+頁[\)）]$', part):
+                        has_wrap = True
+                        break
+                is_wrap.append(has_wrap)
+                
+                ranges = self.extract_page_ranges(content)
+                plate_pages = []
+                for prefix, start, end, suffix in ranges:
+                    if prefix not in prefix_order:
+                        prefix_order[prefix] = order_counter
+                        order_counter += 1
+                    if start == -1:
+                        plate_pages.append((prefix, -1, suffix))
+                    else:
+                        for p in range(start, end + 1):
+                            plate_pages.append((prefix, p, suffix))
+                
+                all_pages.extend(plate_pages)
+                capacities.append(len(plate_pages))
+            else:
+                capacities.append(0)
+                is_wrap.append(False)
+                
+        def sort_key(page_tuple): return (prefix_order.get(page_tuple[0], 0), page_tuple[1])
+        all_pages.sort(key=sort_key)
+        
+        cap_index = index - 1
+        cap_target = target - 1
+        capacities[cap_index], capacities[cap_target] = capacities[cap_target], capacities[cap_index]
+        
+        chunks = []
+        i = 0
+        while i < actual_max:
+            if is_wrap[i] and i + 1 < actual_max:
+                cap_main = capacities[i]
+                cap_sub = capacities[i+1]
+                left_size = cap_main // 2
+                right_size = cap_main - left_size
+                chunks.append( (i, "L", left_size) )
+                chunks.append( (i+1, "FULL", cap_sub) )
+                chunks.append( (i, "R", right_size) )
+                i += 2
+            else:
+                chunks.append( (i, "FULL", capacities[i]) )
+                i += 1
+                
+        plate_parts = { i: {} for i in range(actual_max) }
+        page_idx = 0
+        for plate_idx, part_id, size in chunks:
+            assigned = all_pages[page_idx : page_idx + size]
+            plate_parts[plate_idx][part_id] = assigned
+            page_idx += size
+            
+        for i in range(actual_max):
+            key = f"imp_{i+1}"
+            if is_wrap[i] and i + 1 < actual_max:
+                L_str = self.format_pages_to_string(plate_parts[i].get("L", []))
+                R_str = self.format_pages_to_string(plate_parts[i].get("R", []))
+                wrap_str = f"(包{capacities[i+1]}頁)"
+                
+                parts_str = []
+                if L_str: parts_str.append(L_str)
+                parts_str.append(wrap_str)
+                if R_str: parts_str.append(R_str)
+                final_str = ", ".join(parts_str)
+                
+                if key not in self.vars: self.vars[key] = tk.StringVar()
+                self.vars[key].set(final_str)
+            else:
+                full_str = self.format_pages_to_string(plate_parts[i].get("FULL", []))
+                if key not in self.vars: self.vars[key] = tk.StringVar()
+                self.vars[key].set(full_str)
+                
+            if key in self.entry_widgets:
+                self.check_entry_color(key)
+                
+        self.calculate_totals()
+
+    def reset_form(self):
+        for var in self.vars.values(): var.set("")
+        for var in self.plate_vars.values(): var.set(False)
+        self.vars.setdefault("accessories_info", tk.StringVar()).set("")
+        if self.note_text: self.note_text.delete("1.0", tk.END)
+        self.current_max_index = 0
+        
+        self.original_raw_note = ""
+        self.original_clean_note = ""
+
+    def load_file_dialog(self):
+        file_path = filedialog.askopenfilename(filetypes=[("DAT/XML", "*.dat;*.xml"), ("All", "*.*")])
+        if file_path:
+            self.search_results = []
+            self.search_keyword_var.set("")
+            self.update_listbox()
+            self.process_file(file_path)
+
+    def process_file(self, file_path):
+        try:
+            with open(file_path, 'r', encoding='cp950', errors='replace') as f: content = f.read()
+        except:
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f: content = f.read()
+            except Exception as e:
+                messagebox.showerror("錯誤", f"無法讀取: {e}")
+                return
+
+        self.original_content = content
+        self.current_file_path = file_path
+        self.reset_form()
+        self.current_max_index = self.extract_max_index(content)
+        self.draw_form()
+        self.parse_data(content)
+        self.root.after(200, self.calculate_totals)
+
+    def clean_simple(self, t): 
+        t = re.sub(r'<(br|slindent|p)[^>]*>', '\n', t, flags=re.IGNORECASE)
+        t = re.sub(r'<(?!/?(font|cccii))[^>]+>', '', t, flags=re.IGNORECASE)
+        return html.unescape(t).strip()
+
+    def extract_max_index(self, content):
+        max_idx = 0
+        
+        all_tables = re.findall(r'<table[^>]*frametype="InRow"[^>]*>(.*?)</table>', content, re.DOTALL | re.IGNORECASE)
+        for table in all_tables:
+            rows = re.findall(r'<tr.*?>(.*?)</tr>', table, re.DOTALL)
+            for row in rows:
+                cells = re.findall(r'<td.*?>(.*?)</td>', row, re.DOTALL)
+                for i in [0, 2]:
+                    if i < len(cells):
+                        if re.search(r'<p.*?>(.*?)</p>', cells[i], re.DOTALL):
+                            idx_str = self.clean_simple(re.search(r'<p.*?>(.*?)</p>', cells[i], re.DOTALL).group(1))
+                            if idx_str.isdigit() and int(idx_str) > max_idx: max_idx = int(idx_str)
+        return max_idx
+
+    def parse_data(self, content):
+        def get_val(pat): m = re.search(pat, content, re.DOTALL); return self.clean_simple(m.group(1)) if m else ""
+        def get_lc(id=None):
+            if id:
+                pat = r'<LineCMD\s+name="' + str(id) + r'"[^>]*>((?:(?!</LineCMD>|<LineCMDEND).)*?)(?:</LineCMD>|<LineCMDEND)'
+            else:
+                pat = r'<LineCMD>((?:(?!</LineCMD>|<LineCMDEND).)*?)</LineCMD>'
+            m = re.search(pat, content, re.DOTALL)
+            return self.clean_simple(m.group(1)) if m else ""
+
+        start_idx = -1
+        prefix_used = ""
+        for m in ["其他注意事項：", "注意事項："]:
+            idx = content.find(m)
+            if idx != -1: 
+                start_idx = idx
+                prefix_used = m
+                break
+        
+        if start_idx != -1:
+            end_p = content.find("</p>", start_idx)
+            end_td = content.find("</td>", start_idx)
+            
+            ends = [e for e in [end_p, end_td] if e != -1]
+            end_idx = min(ends) if ends else -1
+            
+            if end_idx != -1:
+                raw_inner = content[start_idx + len(prefix_used) : end_idx]
+                self.original_raw_note = raw_inner
+                
+                clean = raw_inner
+                clean = re.sub(r'<br\s*/?>\s*', '\n', clean, flags=re.IGNORECASE)
+                clean = re.sub(r'<[^>]+>', '', clean) 
+                clean = html.unescape(clean).strip()
+                
+                self.original_clean_note = clean
+                self.note_text.insert("1.0", clean)
+
+        self.vars["shop_id"].set(get_val(r'店內碼：([A-Za-z0-9-]+)'))
+        self.vars["title"].set(get_lc())
+        date_m = re.search(r'日期：\s*(?:<br.*?>)?\s*([^<]+)', content)
+        if date_m: self.vars["date"].set(date_m.group(1).strip())
+
+        frames = re.findall(r'<textframe\s+frametype="AppointSi"[^>]*>.*?<p[^>]*>(.*?)</p>.*?</textframe>', content, re.DOTALL)
+        found_job, found_name = "", ""
+        for f in frames:
+            txt = self.clean_simple(f)
+            if not txt or "店內碼" in txt: continue
+            if re.match(r'^[A-Za-z0-9\-\_]+$', txt): found_job = txt
+            else: found_name = txt
+        self.vars["job_code"].set(found_job)
+        self.vars["name"].set(found_name)
+
+        plate_line = re.search(r'版材：.*?(?=<p)', content, re.DOTALL)
+        if plate_line:
+            p_text = plate_line.group(0)
+            clean_plate = re.sub(r'<(?!cccii)[^>]+>', ' ', p_text)
+            if re.search(r'(?:<cccii[^>]*>|☑)\s*CTP（', clean_plate): self.plate_vars["plate_ctp"].set(True)
+            if re.search(r'(?:<cccii[^>]*>|☑)\s*CTP-K', clean_plate): self.plate_vars["plate_ctpk"].set(True)
+            if re.search(r'(?:<cccii[^>]*>|☑)\s*PS', clean_plate): self.plate_vars["plate_ps"].set(True)
+            if re.search(r'(?:<cccii[^>]*>|☑)\s*不留版', clean_plate): self.plate_vars["plate_none"].set(True)
+
+        def find_after(k): 
+            m = re.search(k + r'[:：]\s*<LineCMD[^>]*>((?:(?!</LineCMD>|<LineCMDEND).)*?)(?:</LineCMD>|<LineCMDEND)', content, re.DOTALL)
+            return self.clean_simple(m.group(1)) if m else ""
+            
+        self.vars["maker"].set(find_after("製版")); self.vars["printer"].set(find_after("印刷"))
+        self.vars["category"].set(find_after("類別")); self.vars["format"].set(find_after("版式")); self.vars["kai"].set(find_after("開數"))
+        self.vars["binding"].set(get_val(r'裝訂：<LineCMD />\s*(.*?)\s*<LineCMDEND'))
+        self.vars["w_finish"].set(get_lc("2")); self.vars["h_finish"].set(get_lc("3"))
+        self.vars["w_bleed"].set(get_lc("4")); self.vars["h_bleed"].set(get_lc("5"))
+        self.vars["margin_top"].set(get_lc("6")); self.vars["margin_bot"].set(get_lc("7"))
+        
+        n8 = re.findall(r'<LineCMD\s+name="8"[^>]*>((?:(?!</LineCMD>|<LineCMDEND).)*?)(?:</LineCMD>|<LineCMDEND)', content, re.DOTALL)
+        if len(n8)>0: self.vars["print_color"].set(self.clean_simple(n8[0]))
+        if len(n8)>1: self.vars["company"].set(self.clean_simple(n8[1]))
+        
+        self.vars["p_size"].set(get_lc("9")); self.vars["p_weight"].set(get_lc("11"))
+        self.vars["p_type"].set(get_lc("12")); self.vars["p_amount"].set(get_lc("13"))
+
+        m_acc = re.search(r'配件：(.*?)(?=校對：|<td[^>]*>\s*校對|</p>\s*</td>\s*</tr>)', content, re.DOTALL)
+        if m_acc:
+            raw_acc = m_acc.group(1)
+            text_acc = re.sub(r'<[^>]+>', ' ', raw_acc)
+            text_acc = html.unescape(text_acc)
+            text_acc = re.sub(r'\s+', ' ', text_acc).strip()
+            
+            keys = ['圖版插頁：', '拉頁：', '圖版集中：', '生字卡：']
+            pattern = '(' + '|'.join(keys) + ')'
+            parts = re.split(pattern, text_acc)
+            
+            display_parts = []
+            for i in range(1, len(parts)-1, 2):
+                key = parts[i].replace('：', '').strip()
+                val = parts[i+1].strip()
+                if re.search(r'\d', val):
+                    val = val.replace(' ～ ', '~').replace(' ~ ', '~')
+                    display_parts.append(f"[{key}] {val}")
+            
+            if display_parts:
+                self.vars.setdefault("accessories_info", tk.StringVar()).set("  ".join(display_parts)[:70])
+            else:
+                self.vars.setdefault("accessories_info", tk.StringVar()).set("")
+
+        # 【無痕掃描廣告頁】
+        ad_block_match = re.search(r'(<td[^>]*>(?:(?!</td>).)*?廣告頁(?:(?!</td>).)*?</td>)', content, re.DOTALL)
+        if ad_block_match:
+            ad_text = ad_block_match.group(1)
+            frames = re.findall(r'<textframe[^>]*>.*?<p[^>]*>(.*?)</p>.*?</textframe>', ad_text, re.DOTALL)
+            
+            vals = []
+            for f in frames:
+                clean_f = self.clean_simple(f).strip()
+                match = re.search(r'(\d+)', clean_f)
+                vals.append(match.group(1) if match else "")
+            
+            if not frames:
+                clean_ad_text = re.sub(r'<[^>]+>', '', ad_text)
+                nums = re.findall(r'(\d+)', clean_ad_text)
+                vals = nums
+            
+            if len(vals) >= 1: self.vars["ad_start"].set(vals[0])
+            if len(vals) >= 2: self.vars["ad_end"].set(vals[1])
+            if len(vals) >= 3: self.vars["blank_start"].set(vals[2])
+            if len(vals) >= 4: self.vars["blank_end"].set(vals[3])
+            if len(vals) >= 5: self.vars["end_start"].set(vals[4])
+            if len(vals) >= 6: self.vars["end_end"].set(vals[5])
+
+        all_tables = re.findall(r'<table[^>]*frametype="InRow"[^>]*>(.*?)</table>', content, re.DOTALL | re.IGNORECASE)
+        for table in all_tables:
+            rows = re.findall(r'<tr.*?>(.*?)</tr>', table, re.DOTALL)
+            for row in rows:
+                cells = re.findall(r'<td.*?>(.*?)</td>', row, re.DOTALL)
+                for i in [0, 2]:
+                    if i < len(cells) and len(cells) > i+1:
+                        if "廣告頁" in cells[i+1]:
+                            continue
+                        idx_str = self.clean_simple(re.search(r'<p.*?>(.*?)</p>', cells[i], re.DOTALL).group(1))
+                        val_str = self.clean_simple(re.search(r'<p.*?>(.*?)</p>', cells[i+1], re.DOTALL).group(1))
+                        if idx_str.isdigit():
+                            key = f"imp_{int(idx_str)}"
+                            if key not in self.vars: self.vars[key] = tk.StringVar()
+                            self.vars[key].set(val_str)
+                            if key in self.entry_widgets: self.check_entry_color(key)
+
+    def save_file(self):
+        current_user = getpass.getuser().lower()
+        allowed_users = ['joyce', 'righting', 'inoran', 'sammi']
+        
+        if current_user not in allowed_users:
+            messagebox.showerror("權限限制", f"您好，{current_user}！\n系統安全設定：目前僅開放授權名單 (joyce, righting, inoran, sammi) 進行存檔操作！")
+            return
+            
+        if not self.original_content: 
+            messagebox.showwarning("警告", "請先讀取檔案!")
+            return
+            
+        default_filename = ""
+        if self.current_file_path:
+            default_filename = os.path.basename(self.current_file_path)
+            
+        save_path = filedialog.asksaveasfilename(
+            initialfile=default_filename,
+            defaultextension=".dat", 
+            filetypes=[("DAT files", "*.dat"), ("XML files", "*.xml"), ("All files", "*.*")]
+        )
+        if not save_path: return
+
+        try:
+            new_content = self.original_content
+            
+            # 【按需分裂公司名稱欄位】
+            company_val = self.vars.get("company", tk.StringVar()).get().strip()
+            if company_val:
+                single_print_pattern = r'<td\s+([^>]*)>\s*<p([^>]*)>\s*印刷：\s*(<LineCMD\s+name=["\']8["\'][^>]*>(?:(?!</LineCMD>|<LineCMDEND).)*?(?:</LineCMD>|<LineCMDEND[^>]*>))\s*</p>\s*</td>'
+                def inject_company_on_save(m):
+                    td_attrs = m.group(1)
+                    if ('colspan="4"' in td_attrs or "colspan='4'" in td_attrs):
+                        td_attrs_left = re.sub(r'colspan=["\']4["\']', 'colspan="3"', td_attrs)
+                        td_attrs_left = re.sub(r'width=["\']180\.00["\']', 'width="135.00"', td_attrs_left)
+                        td_attrs_right = re.sub(r'colspan=["\']4["\']', 'colspan="1"', td_attrs)
+                        td_attrs_right = re.sub(r'width=["\']180\.00["\']', 'width="45.00"', td_attrs_right)
+                        
+                        p_attrs = m.group(2)
+                        print_linecmd = m.group(3)
+                        return (
+                            f'<td {td_attrs_left}>\n<p{p_attrs}>\n印刷：{print_linecmd}</p></td>\n'
+                            f'<td {td_attrs_right}>\n<p{p_attrs}>\n公司：<LineCMD name="8" />　\n\n　<LineCMDEND name="8" /></p></td>'
+                        )
+                    return m.group(0)
+                new_content = re.sub(single_print_pattern, inject_company_on_save, new_content, flags=re.DOTALL | re.IGNORECASE)
+
+            # --- 基本資料與標籤更換 ---
+            shop_id = self.vars.get("shop_id", tk.StringVar()).get()
+            if shop_id:
+                m = re.search(r'(店內碼[:：]\s*)([A-Za-z0-9-]*)', new_content)
+                if m: new_content = new_content[:m.start(2)] + shop_id + new_content[m.end(2):]
+            
+            frames = list(re.finditer(r'<textframe\s+frametype="AppointSi"[^>]*>.*?</textframe>', new_content, re.DOTALL))
+            job_code = self.vars.get("job_code", tk.StringVar()).get()
+            name = self.vars.get("name", tk.StringVar()).get()
+            
+            if len(frames) >= 3 and name:
+                m = frames[2]
+                inner_p = re.search(r'(<p[^>]*>)(.*?)(</p>)', m.group(0), re.DOTALL)
+                if inner_p:
+                    new_inner = self.replace_preserve_ws(inner_p.group(2), name)
+                    new_frame = m.group(0)[:inner_p.start(2)] + new_inner + m.group(0)[inner_p.end(2):]
+                    new_content = new_content[:m.start()] + new_frame + new_content[m.end():]
+                
+            if len(frames) >= 2 and job_code:
+                m = frames[1]
+                inner_p = re.search(r'(<p[^>]*>)(.*?)(</p>)', m.group(0), re.DOTALL)
+                if inner_p:
+                    new_inner = self.replace_preserve_ws(inner_p.group(2), job_code)
+                    new_frame = m.group(0)[:inner_p.start(2)] + new_inner + m.group(0)[inner_p.end(2):]
+                    new_content = new_content[:m.start()] + new_frame + new_content[m.end():]
+            
+            title = self.vars.get("title", tk.StringVar()).get()
+            if title:
+                m = re.search(r'(<LineCMD>)((?:(?!</LineCMD>).)*?)(</LineCMD>)', new_content, re.DOTALL)
+                if m: 
+                    new_inner = self.replace_preserve_ws(m.group(2), title)
+                    new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            date = self.vars.get("date", tk.StringVar()).get()
+            if date:
+                m = re.search(r'(日期[:：]\s*(?:<br.*?>)?\s*)([^<\n]*)', new_content)
+                if m: new_content = new_content[:m.start(2)] + date + new_content[m.end(2):]
+            
+            plate_section = re.search(r'版材[:：].*?</p>', new_content, re.DOTALL)
+            if plate_section:
+                old_plate = plate_section.group(0)
+                new_plate = old_plate
+                
+                if self.plate_vars.get("plate_ctp", tk.BooleanVar()).get():
+                    new_plate = re.sub(r'□CTP', '<cccii="21265f">CTP', new_plate)
+                else:
+                    new_plate = re.sub(r'<cccii="[^"]*">CTP', '□CTP', new_plate)
+                
+                if self.plate_vars.get("plate_ps", tk.BooleanVar()).get():
+                    new_plate = re.sub(r'□PS', '<cccii="21265f">PS', new_plate)
+                else:
+                    new_plate = re.sub(r'<cccii="[^"]*">PS', '□PS', new_plate)
+                
+                if self.plate_vars.get("plate_ctpk", tk.BooleanVar()).get():
+                    new_plate = re.sub(r'□CTP-K', '<cccii="21265f">CTP-K', new_plate)
+                else:
+                    new_plate = re.sub(r'<cccii="[^"]*">CTP-K', '□CTP-K', new_plate)
+                
+                if self.plate_vars.get("plate_none", tk.BooleanVar()).get():
+                    new_plate = re.sub(r'□不留版', '<cccii="21265f">不留版', new_plate)
+                else:
+                    new_plate = re.sub(r'<cccii="[^"]*">不留版', '□不留版', new_plate)
+                
+                new_content = new_content[:plate_section.start()] + new_plate + new_content[plate_section.end():]
+            
+            for field, pattern_key in [("maker", "製版"), ("printer", "印刷")]:
+                val = self.vars.get(field, tk.StringVar()).get()
+                if val:
+                    m = re.search(rf'({pattern_key}[:：]\s*<LineCMD[^>]*>)((?:(?!</LineCMD>|<LineCMDEND).)*?)(</LineCMD>|<LineCMDEND[^>]*>)', new_content, re.DOTALL)
+                    if m: 
+                        new_inner = self.replace_preserve_ws(m.group(2), val)
+                        new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            for key, label in [("category", "類別"), ("format", "版式"), ("kai", "開數")]:
+                val = self.vars.get(key, tk.StringVar()).get()
+                if val:
+                    m = re.search(rf'({label}[:：]\s*<LineCMD[^>]*>)((?:(?!</LineCMD>|<LineCMDEND).)*?)(</LineCMD>|<LineCMDEND[^>]*>)', new_content, re.DOTALL)
+                    if m: 
+                        new_inner = self.replace_preserve_ws(m.group(2), val)
+                        new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            binding = self.vars.get("binding", tk.StringVar()).get()
+            if binding:
+                m = re.search(r'(裝訂[:：]\s*<LineCMD[^>]*>)((?:(?!</LineCMD>|<LineCMDEND).)*?)(</LineCMD>|<LineCMDEND[^>]*>)', new_content, re.DOTALL)
+                if m: 
+                    new_inner = self.replace_preserve_ws(m.group(2), binding)
+                    new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            for key, name_id in [("w_finish", "2"), ("h_finish", "3"), ("w_bleed", "4"), 
+                                 ("h_bleed", "5"), ("margin_top", "6"), ("margin_bot", "7"),
+                                 ("p_size", "9"), ("p_weight", "11"), ("p_type", "12"), ("p_amount", "13")]:
+                val = self.vars.get(key, tk.StringVar()).get()
+                if val:
+                    m = re.search(rf'(<LineCMD\s+name="{name_id}"[^>]*>)((?:(?!</LineCMD>|<LineCMDEND).)*?)(</LineCMD>|<LineCMDEND\s+name="{name_id}"[^>]*>)', new_content, re.DOTALL)
+                    if m: 
+                        new_inner = self.replace_preserve_ws(m.group(2), val)
+                        new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            print_color = self.vars.get("print_color", tk.StringVar()).get()
+            company = self.vars.get("company", tk.StringVar()).get()
+            matches_8 = list(re.finditer(r'(<LineCMD\s+name="8"[^>]*>)((?:(?!</LineCMD>|<LineCMDEND).)*?)(</LineCMD>|<LineCMDEND\s+name="8"[^>]*>)', new_content, re.DOTALL))
+            
+            if len(matches_8) >= 2 and company:
+                m = matches_8[1]
+                new_inner = self.replace_preserve_ws(m.group(2), company)
+                new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            if len(matches_8) >= 1 and print_color:
+                m = matches_8[0]
+                new_inner = self.replace_preserve_ws(m.group(2), print_color)
+                new_content = new_content[:m.start(2)] + new_inner + new_content[m.end(2):]
+            
+            note_pattern = r'(其他注意事項：|注意事項：)(.*?)(</p>|</td>)'
+            matches = list(re.finditer(note_pattern, new_content, re.DOTALL))
+            if matches:
+                m = matches[0]
+                prefix = m.group(1)
+                suffix = m.group(3)
+                
+                current_ui_note = self.note_text.get("1.0", tk.END).strip()
+                if current_ui_note == getattr(self, 'original_clean_note', ""):
+                    final_inner = self.original_raw_note
+                else:
+                    formatted_note = current_ui_note.replace('\n', '<br>\n')
+                    final_inner = f"<slindent>\n{formatted_note}\n"
+                new_content = new_content[:m.start(2)] + final_inner + new_content[m.end(2):]
+
+
+            # --- 處理台次表格 ---
+            tables = list(re.finditer(r'<table[^>]*frametype="InRow"[^>]*>(.*?)</table>', new_content, re.DOTALL | re.IGNORECASE))
+            if tables:
+                target_table = tables[-1]
+                table_body = target_table.group(1)
+                new_table_body = table_body
+                
+                rows = list(re.finditer(r'<tr.*?>(.*?)</tr>', table_body, re.DOTALL))
+                for row_m in reversed(rows):
+                    old_row = row_m.group(0)
+                    cells = list(re.finditer(r'<td.*?>(.*?)</td>', old_row, re.DOTALL))
+                    new_row = old_row
+                    
+                    for i in [2, 0]:
+                        if i < len(cells) and len(cells) > i+1:
+                            cell_content = cells[i].group(1)
+                            # 如果是廣告頁，跳過不處理
+                            if "廣告頁" in cells[i+1].group(1):
+                                continue
+
+                            p_match = re.search(r'<p.*?>(.*?)</p>', cell_content, re.DOTALL)
+                            if p_match:
+                                idx_str = self.clean_simple(p_match.group(1))
+                                if idx_str.isdigit():
+                                    key = f"imp_{int(idx_str)}"
+                                    if key in self.vars:
+                                        new_val = self.vars[key].get()
+                                        val_cell_match = cells[i+1]
+                                        old_val_cell = val_cell_match.group(0)
+                                        
+                                        inner_p_match = re.search(r'(<p[^>]*>)(.*?)(</p>)', old_val_cell, re.DOTALL)
+                                        if inner_p_match:
+                                            new_inner = self.replace_preserve_ws(inner_p_match.group(2), new_val)
+                                            new_val_cell = old_val_cell[:inner_p_match.start(2)] + new_inner + old_val_cell[inner_p_match.end(2):]
+                                            new_row = new_row[:val_cell_match.start()] + new_val_cell + new_row[val_cell_match.end():]
+                    
+                    new_table_body = new_table_body[:row_m.start()] + new_row + new_table_body[row_m.end():]
+                
+                new_content = new_content[:target_table.start(1)] + new_table_body + new_content[target_table.end(1):]
+
+            # 處理廣告頁與末頁設定
+            ad_block_match = re.search(r'(<td[^>]*>(?:(?!</td>).)*?廣告頁(?:(?!</td>).)*?</td>)', new_content, re.DOTALL)
+            if ad_block_match:
+                old_ad = ad_block_match.group(1)
+                new_ad = old_ad
+                
+                textframes = list(re.finditer(r'<textframe[^>]*>.*?<p[^>]*>(.*?)</p>.*?</textframe>', old_ad, re.DOTALL))
+                keys = ["ad_start", "ad_end", "blank_start", "blank_end", "end_start", "end_end"]
+                
+                zipped_tf_keys = list(zip(textframes, keys))
+                for tf_match, key in reversed(zipped_tf_keys):
+                    if key in self.vars:
+                        val = self.vars[key].get()
+                        old_tf = tf_match.group(0)
+                        
+                        inner_p_match = re.search(r'(<p[^>]*>)(.*?)(</p>)', old_tf, re.DOTALL)
+                        if inner_p_match:
+                            new_inner = self.replace_preserve_ws(inner_p_match.group(2), val)
+                            new_tf = old_tf[:inner_p_match.start(2)] + new_inner + old_tf[inner_p_match.end(2):]
+                            new_ad = new_ad[:tf_match.start()] + new_tf + new_ad[tf_match.end():]
+                
+                new_content = new_content[:ad_block_match.start(1)] + new_ad + new_content[ad_block_match.end(1):]
+
+            if 'encoding="UTF-8"' in new_content: 
+                new_content = new_content.replace('encoding="UTF-8"', 'encoding="BIG5"')
+                
+            with open(save_path, 'w', encoding='cp950', errors='xmlcharrefreplace') as f: 
+                f.write(new_content)
+                
+            messagebox.showinfo("成功", f"檔案已儲存至:\n{save_path}")
+
+        except Exception as e: 
+            messagebox.showerror("錯誤", f"儲存失敗:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+
+if __name__ == "__main__":
+    check_for_updates()
+    root = tk.Tk()
+    app = FinalPrecisionImpositionViewer(root)
+    root.mainloop()
