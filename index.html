@@ -181,8 +181,8 @@
     <ul>
         <li><span class="color-box" style="background:#ffcc00;"></span><strong>黃色警戒：</strong>倒數 30 分鐘內，卡片會發出黃光閃爍。</li>
         <li><span class="color-box" style="background:#ff1a1a;"></span><strong>紅色警戒：</strong>倒數 10 分鐘內，卡片會發出強烈紅光閃爍，準備出王！</li>
-        <li><span class="color-box" style="border:2px dashed #ff9933; background:#261a0d;"></span><strong>橙色虛線 (推算)：</strong>出現超過 30 分鐘後自動推算下一次，最多推算 48 小時，僅供參考。</li>
-        <li><span class="color-box" style="background:#1a1a1a; border:1px solid #555;"></span><strong>灰色沉底 (未登記 / 已過期)：</strong>從未登記，或最後登記超過 48 小時（顯示最後記錄時間）。</li>
+        <li><span class="color-box" style="border:2px dashed #ff9933; background:#261a0d;"></span><strong>橙色虛線 (推算)：</strong>出現超過 30 分鐘後自動推算下一次，最多推算 24 小時，僅供參考。</li>
+        <li><span class="color-box" style="background:#1a1a1a; border:1px solid #555;"></span><strong>灰色沉底 (未登記 / 已過期)：</strong>從未登記，或最後登記超過 24 小時（顯示最後記錄時間）。</li>
     </ul>
 
     <h3>🏷️ 頭目種類標籤</h3>
@@ -194,7 +194,7 @@
 
     <h3>🛠️ 進階操作技巧</h3>
     <ul>
-        <li><strong>推算時效：</strong>出現超過 30 分鐘後進入推算倒數，推算最多 48 小時，超過即顯示「已過期」並附上最後記錄時間。</li>
+        <li><strong>推算時效：</strong>出現超過 30 分鐘後進入推算倒數，推算最多 24 小時，超過即顯示「已過期」並附上最後記錄時間。</li>
         <li><strong>一鍵複製：</strong>點擊上方複製全團時刻表（自動排除每週王），或點擊單張卡片「📋 複製」貼到群組！</li>
         <li><strong>快速輸入：</strong>點擊輸入框自動全選，輸入 <code>1647</code> 即可，日期由系統自動記錄，無需手動輸入。</li>
         <li><strong>防斷線保護：</strong>系統每 15 分鐘會在背景自動刷新一次，確保長時間掛機也不會斷開連線。</li>
@@ -458,7 +458,7 @@ window.copySingleBoss = function(name, btnEl) {
             } else {
                 const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
                 const actualInterval = isFastMode ? config.value / 2 : config.value;
-                if (hoursSinceKill > 48) {
+                if (hoursSinceKill > 24) { // 統一為 24 小時過期
                     timeText = "已過期";
                 } else {
                     const result = calcIntervalBoss(killDate, actualInterval, now);
@@ -486,7 +486,8 @@ window.copySingleBoss = function(name, btnEl) {
     const origHTML = btnEl.innerHTML;
     const ok = () => {
         btnEl.innerHTML = "✅ 已複製";
-        btnEl.style.backgroundColor = "#2d5a27"; btnEl.style.borderColor = "#2d5a27";
+        btnEl.style.backgroundColor = "#2d5a27";
+        btnEl.style.borderColor = "#2d5a27";
         setTimeout(() => { btnEl.innerHTML = origHTML; btnEl.style.backgroundColor = ""; btnEl.style.borderColor = ""; }, 1500);
     };
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok).catch(() => fallbackCopy(text, ok));
@@ -515,7 +516,7 @@ window.copyBossTimes = function() {
                 } else {
                     const hoursSinceKill = (now - killDate) / 1000 / 60 / 60;
                     const actualInterval = isFastMode ? config.value / 2 : config.value;
-                    if (hoursSinceKill > 48) {
+                    if (hoursSinceKill > 24) { // 統一為 24 小時過期
                         timeText = "已過期"; orderWeight = 190000000;
                     } else {
                         const result = calcIntervalBoss(killDate, actualInterval, now);
@@ -757,10 +758,10 @@ function getNextFixedTime(now, type, timeStr, dayOfWeek) {
     let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), tH||0, tM||0, 0);
     if (type === 'weekly') {
         let diff = dayOfWeek - target.getDay();
-        if (diff < 0 || (diff === 0 && now - target > 2*60*60*1000)) diff += 7;
+        if (diff < 0 || (diff === 0 && now - target > 30 * 60 * 1000)) diff += 7; // 🌟 滿30分就切換
         target.setDate(target.getDate() + diff);
     } else if (type === 'daily') {
-        if (now - target > 2*60*60*1000) target.setDate(target.getDate() + 1);
+        if (now - target > 30 * 60 * 1000) target.setDate(target.getDate() + 1); // 🌟 滿30分就切換
     }
     return target;
 }
@@ -810,8 +811,8 @@ function updateAndSort() {
                 const actualInterval  = isFastMode ? config.value / 2 : config.value;
                 const hoursSinceKill  = (now - killDate) / 1000 / 60 / 60;
 
-                // ── B：超過 48 小時 → 已過期 ──
-                if (hoursSinceKill > 48) {
+                // ── B：超過 24 小時 → 已過期 ──
+                if (hoursSinceKill > 24) { // 🌟 統一為 24 小時
                     card.className += ' expired';
                     displayEl.innerHTML = `已過期 <span style="color:#666;font-size:0.85em;">（最後記錄: ${getDisplayDateTime(record)}）</span>`;
                     statusEl.innerText  = '請重新登記擊殺時間';
